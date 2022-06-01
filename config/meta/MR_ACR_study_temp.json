@@ -1,0 +1,143 @@
+{
+    "comments": {
+        "author": "Tim Schakel, UMCU",
+        "creator": "Manual",
+        "description": "Coilwise SNR test for MRLinac"
+    },
+    "metaformat": "20220525",
+    "results": {
+        "AcquisitionDateTime": {
+            "constraint_period": 14,
+            "description": "date and time of acquisition",
+            "display_level": 2,
+            "display_name": "DateTime",
+            "units": ""
+        },
+        "ImagingFrequency_MRLSNR": {
+            "description": "Central Frequency",
+            "display_level": 2,
+            "display_name": "Central_freq_MRLSNR",
+            "units": "MHz"
+        },
+        "PatientName_MRLSNR": {
+            "description": "Patient Name",
+            "display_level": 2,
+            "display_name": "PatientName_MRLSNR",
+            "units": ""
+        },
+        "AcquisitionNumber_MRLSNR": {
+            "description": "Acquisition Number",
+            "display_level": 2,
+            "display_name": "AcquisitionNumber_MRLSNR",
+            "units": ""
+        },
+        "S/N (B)_MRLSNR_0": {
+            "constraint_minlowhighmax": [
+                87,
+                87,
+                null,
+                null
+            ],
+            "description": "signal to noise ratio",
+            "display_level": 2,
+            "display_name": "S/N (B) MRLSNR_0",
+            "units": "%"
+        },
+        "S/N (B)_MRLSNR_1": {
+            "constraint_minlowhighmax": [
+                79,
+                79,
+                null,
+                null
+            ],
+            "description": "signal to noise ratio",
+            "display_level": 2,
+            "display_name": "S/N (B) MRLSNR_1",
+            "units": "%"
+        },
+        "S/N (B)_MRLSNR_2": {
+            "constraint_minlowhighmax": [
+                113,
+                113,
+                null,
+                null
+            ],
+            "description": "signal to noise ratio",
+            "display_level": 2,
+            "display_name": "S/N (B) MRLSNR_2",
+            "units": "%"
+        },
+        "S/N (B)_MRLSNR_3": {
+            "constraint_minlowhighmax": [
+                113,
+                113,
+                null,
+                null
+            ],
+            "description": "signal to noise ratio",
+            "display_level": 2,
+            "display_name": "S/N (B) MRLSNR_3",
+            "units": "%"
+        },
+        "S/N (B)_MRLSNR_4": {
+            "constraint_minlowhighmax": [
+                79,
+                79,
+                null,
+                null
+            ],
+            "description": "signal to noise ratio",
+            "display_level": 2,
+            "display_name": "S/N (B) MRLSNR_4",
+            "units": "%"
+        },
+        "S/N (B)_MRLSNR_5": {
+            "constraint_minlowhighmax": [
+                85,
+                85,
+                null,
+                null
+            ],
+            "description": "signal to noise ratio",
+            "display_level": 2,
+            "display_name": "S/N (B) MRLSNR_5",
+            "units": "%"
+        },
+        "S/N (B)_MRLSNR_6": {
+            "constraint_minlowhighmax": [
+                170,
+                170,
+                null,
+                null
+            ],
+            "description": "signal to noise ratio",
+            "display_level": 2,
+            "display_name": "S/N (B) MRLSNR_6",
+            "units": "%"
+        },
+        "S/N (B)_MRLSNR_7": {
+            "constraint_minlowhighmax": [
+                170,
+                170,
+                null,
+                null
+            ],
+            "description": "signal to noise ratio",
+            "display_level": 2,
+            "display_name": "S/N (B) MRLSNR_7",
+            "units": "%"
+        },
+        "S/N (B)_MRLSNR_8": {
+            "constraint_minlowhighmax": [
+                85,
+                85,
+                null,
+                null
+            ],
+            "description": "signal to noise ratio",
+            "display_level": 2,
+            "display_name": "S/N (B) MRLSNR_8",
+            "units": "%"
+        }
+    }
+}

@@ -1,0 +1,58 @@
+{
+  "actions": {
+    "acqdatetime": {
+      "filters": {},
+      "params": {
+        "datetime_level": "Study",
+        "datetime_series_description": "t T1 bw634_clear"
+      }
+    },
+    "geometry_z": {
+      "filters": {
+      	"SeriesDescription": "Survey_hBW_nsa2",
+      	"0x2001,100b": "SAGITTAL"
+      	},
+      "params": {
+      	"canny_sigma": "3",
+        "canny_low_threshold": "200"
+      }
+    },
+    "geometry_xy": {
+      "filters": {
+      	"SeriesDescription": "t T1 bw634_clear"
+      	},
+      "params": {
+      	"slicenumber": "6"
+      }
+    },
+    "resolution_t1": {
+      "filters": {
+      	"SeriesDescription": "t T1 bw634_clear"
+      	},
+      "params": {
+      	"slicenumber": "1"
+      }
+    },
+    "acr_series": {
+      "filters": {
+      	"SeriesDescription": "Survey_hBW_nsa2",
+      	"0x2001,100b": "SAGITTAL"
+      	},
+      "params": {
+      	"localizer_series_description": "Survey_hBW_nsa2",
+        "t1_series_description": "t T1 bw634_clear",
+        "t2_series_description": "t T2 bw634_clear"
+      }
+    }
+  },
+  "cfgformat": "20220530",
+  "comments": {
+    "author": "Tim Schakel, UMCU",
+    "description": "WADQC 2 module for use with ACR MR phantom acquisitions",
+    "version": "0.1",
+    "params": {
+      "datetime_level": "REQUIRED. For allowed options see wad_qc.modulelibs.wadwrapper_lib.dcm_datetime.get_datetime.",
+      "datetime_series_description": "REQUIRED. Series description for retreiving datetime"
+    }
+  }
+}
