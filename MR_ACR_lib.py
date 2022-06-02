@@ -374,3 +374,33 @@ def slice_thickness(data, results, action):
     results.addObject("T1 FWHM's", t1_fwhm_fig)
     results.addObject("T2 ROI's", t2_rois_fig)
     results.addObject("T2 FWHM's", t2_fwhm_fig)
+    
+def slice_pos_t1(data,results,action):
+    params = action["params"]
+    filters = action["filters"]
+    """
+    4. Slice Position Accuracy
+    Determine the slice position accuracy
+    Use the T1 scan 
+    """
+    series_filter = {item:filters.get(item)for item in ["SeriesDescription"]}
+    data_series = applyFilters(data.series_filelist, series_filter)
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series[0],headers_only=False)
+    image_data_top = np.transpose(pixeldataIn[int(params['slicenumbertop'])-1,:,:]) # take slice-1 (0-index)
+    image_data_bot = np.transpose(pixeldataIn[int(params['slicenumberbot'])-1,:,:]) # take slice-1 (0-index)
+    image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
+    
+    # offsets for the Slice Position insert
+    # location of the Slice Position insert is defined wrt center of the phantom:
+    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    
+    # get the edges
+    edges_bot = detect_edges(image_data_bot)
+    edges_top = detect_edges(image_data_top)
+    edges_bot_xy = mask_to_coordinates(edges_bot)
+    edges_top_xy = mask_to_coordinates(edges_top)
+    # compare edge locations between 2 different locs
+    
+    # make a figure
+    
+    # write results

@@ -70,6 +70,8 @@ if __name__ == "__main__":
             MR_ACR_lib.slice_thickness(data, results, action)
         elif name == 'resolution_t2':
             MR_ACR_lib.resolution_t2(data, results, action)
+        elif name == 'slice_pos_t1':
+            MR_ACR_lib.slice_pos_t1(data, results, action)
         #elif name == 'acr_series':
         #    MR_ACR_lib.acr_series(data, results, action)
 
