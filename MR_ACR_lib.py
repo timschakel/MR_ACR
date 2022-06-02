@@ -261,6 +261,10 @@ def resolution_t2(data,results,action):
 def slice_thickness(data, results, action):
     params = action["params"]
     filters = action["filters"]
+    t1_rois_fig = "t1_roi.png"
+    t1_fwhm_fig = "t1_fwhm.png"
+    t2_rois_fig = "t2_roi.png"
+    t2_fwhm_fig = "t2_fwhm.png"
     """
     3. Slice Thickness Accuracy
     Determine the slice thickness using the ramps in slice 1
@@ -332,7 +336,7 @@ def slice_thickness(data, results, action):
     ax.add_patch(Rectangle((x_center_px-7, y_center_px+1), 15, 2,fc ='none', ec ='r', lw = 1) )
     ax.add_patch(Rectangle((x_center_px-7, y_center_px-4), 15, 2,fc ='none', ec ='r', lw = 1) )
     plt.title("ROI's in T1 image" )
-    plt.show()
+    plt.savefig(t1_rois_fig, dpi=300)
     
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -341,8 +345,8 @@ def slice_thickness(data, results, action):
     ax.axvline(x=50-t1_lower_2,color='blue')
     ax.axvline(x=50+t1_upper_1,color='red')
     ax.axvline(x=50+t1_upper_2,color='blue')
-    plt.title("FWHM's in T1 image (red = ramp 1, blue = ramp 2)" )
-    plt.show()
+    plt.title("FWHM's in T1 image (red = top ramp , blue = bot ramp)")
+    plt.savefig(t1_fwhm_fig, dpi=300)
     
     # T2 plots
     fig = plt.figure()
@@ -351,7 +355,7 @@ def slice_thickness(data, results, action):
     ax.add_patch(Rectangle((x_center_px-7, y_center_px+1), 15, 2,fc ='none', ec ='r', lw = 1) )
     ax.add_patch(Rectangle((x_center_px-7, y_center_px-4), 15, 2,fc ='none', ec ='r', lw = 1) )
     plt.title("ROI's in T2 image" )
-    plt.show()
+    plt.savefig(t2_rois_fig, dpi=300)
     
     fig = plt.figure()
     ax = fig.add_subplot()
@@ -360,11 +364,13 @@ def slice_thickness(data, results, action):
     ax.axvline(x=50-t2_lower_2,color='blue')
     ax.axvline(x=50+t2_upper_1,color='red')
     ax.axvline(x=50+t2_upper_2,color='blue')
-    plt.title("FWHM's in T2 image (red = ramp 1, blue = ramp 2)" )
-    plt.show()
+    plt.title("FWHM's in T2 image (red = top ramp , blue = bot ramp)")
+    plt.savefig(t2_fwhm_fig, dpi=300)
     
-    # fig = plt.figure()
-    # ax = fig.add_subplot()
-    # ax.plot(np.transpose(t1_image_data[y_center_px-4:y_center_px-1,:]))
-    # ax.plot(mean_ramps/2.0*np.ones(t1_image_data.shape[0]))
-    # plt.show()
+    # write results:
+    results.addFloat("Slice Thickness T1", t1_slice_thickness)
+    results.addFloat("Slice Thickness T2", t2_slice_thickness)
+    results.addObject("T1 ROI's", t1_rois_fig)
+    results.addObject("T1 FWHM's", t1_fwhm_fig)
+    results.addObject("T2 ROI's", t2_rois_fig)
+    results.addObject("T2 FWHM's", t2_fwhm_fig)
