@@ -45,17 +45,6 @@
       	"bg_factor": 4
       }
     },
-    "acr_series": {
-      "filters": {
-      	"SeriesDescription": "Survey_hBW_nsa2",
-      	"0x2001,100b": "SAGITTAL"
-      	},
-      "params": {
-      	"localizer_series_description": "Survey_hBW_nsa2",
-        "t1_series_description": "t T1 bw634_clear",
-        "t2_series_description": "t T2 bw634_clear"
-      }
-    },
     "slice_thickness": {
     	"filters": {
     	    "t1_series_description": "t T1 bw634_clear",
@@ -85,6 +74,15 @@
     	"params": {
     	 "slicenumber": "7"
     	}
+    },
+    "slice_pos_t1": {
+      "filters": {
+      	"SeriesDescription": "t T1 bw634_clear"
+      	},
+      "params": {
+      	"slicenumberbot": "1",
+      	"slicenumbertop": "11"
+      }
     }
   },
   "cfgformat": "20220530",
