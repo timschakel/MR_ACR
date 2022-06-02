@@ -55,6 +55,16 @@
         "t1_series_description": "t T1 bw634_clear",
         "t2_series_description": "t T2 bw634_clear"
       }
+    },
+    "slice_thickness": {
+    	"filters": {
+    	    "t1_series_description": "t T1 bw634_clear",
+            "t2_series_description": "t T2 bw634_clear"
+    	},
+    	"params": {
+    	 "t1_slicenumber": "1",
+	 "t2_slicenumber": "23"
+    	}
     }
   },
   "cfgformat": "20220530",

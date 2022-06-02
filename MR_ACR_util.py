@@ -126,9 +126,9 @@ def plot_ellipse_on_image(
     """
     fig, ax = plt.subplots(subplot_kw={"aspect": "equal"})
     ellipse_plot = Ellipse(
-        xy=(ellipse[2], ellipse[3]),
-        width=ellipse[0] * 2,
-        height=ellipse[1] * 2,
+        xy=(ellipse[0], ellipse[1]),
+        width=ellipse[2] * 2,
+        height=ellipse[3] * 2,
         angle=ellipse[4],)
     
     ellipse_plot.set_edgecolor("red")
@@ -136,13 +136,13 @@ def plot_ellipse_on_image(
     ellipse_plot.set_fill(False)
     ax.add_artist(ellipse_plot)
     if draw_axes:
-        x_1, y_1 = [ellipse[2] - ellipse[0], ellipse[2] + ellipse[0]], [
-            ellipse[3],
-            ellipse[3],
+        x_1, y_1 = [ellipse[0] - ellipse[2], ellipse[0] + ellipse[2]], [
+            ellipse[1],
+            ellipse[1],
         ]
-        x_2, y_2 = [ellipse[2], ellipse[2]], [
-            ellipse[3] - ellipse[1],
-            ellipse[3] + ellipse[1],
+        x_2, y_2 = [ellipse[0], ellipse[0]], [
+            ellipse[1] - ellipse[3],
+            ellipse[1] + ellipse[3],
         ]
 
         plt.plot(x_1, y_1, x_2, y_2, linewidth=0.5, color="r")
@@ -595,3 +595,24 @@ def check_resolution_peaks2(image_data, res_locs):
         
     # make a figure
     return resolution_resolved
+
+def find_fwhm(val, ramp, xcenter):
+    sum_width = 0
+    sum_upper = 0
+    sum_lower = 0
+    for i in range(ramp.shape[0]):
+        line = ramp[i,:]
+        # x -> (idx, val) pair. find first idx where value is lower than val
+        # xcenter -> end
+        upper = next(x[0] for x in enumerate(line[xcenter:]) if x[1] < val)
+        # xcenter -> begin
+        lower = next(x[0] for x in enumerate(np.flip(line[0:xcenter])) if x[1] < val)
+        sum_width += upper + lower
+        sum_upper += upper
+        sum_lower += lower
+        
+    fwhm = sum_width/ramp.shape[0]
+    upper = sum_upper/ramp.shape[0]
+    lower = sum_lower/ramp.shape[0]
+    return fwhm, upper, lower
+        

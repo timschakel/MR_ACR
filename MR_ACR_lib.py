@@ -11,10 +11,10 @@ import wad_qc.module.moduledata
 import numpy as np
 import pydicom
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from scipy.signal import find_peaks
 
-from MR_ACR_util import (find_z_length,find_xy_diameter,retrieve_ellipse_parameters,
-                         check_resolution_peaks1,check_resolution_peaks2)
+from MR_ACR_util import find_z_length,find_xy_diameter,retrieve_ellipse_parameters,check_resolution_peaks1,check_resolution_peaks2,find_fwhm
 
 ### Helper functions
 def getValue(ds, label):
@@ -257,5 +257,114 @@ def resolution_t2(data,results,action):
     results.addBool("Resolution T2 VER 0.9 passed", resolution_resolved1[5])
     results.addObject("Resolution T2", saveas)
         
-        
+
+def slice_thickness(data, results, action):
+    params = action["params"]
+    filters = action["filters"]
+    """
+    3. Slice Thickness Accuracy
+    Determine the slice thickness using the ramps in slice 1
+    Use the T1 & T2 scan 
+    """
+    t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
+    t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
+    #load T1
+    t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
+    x_res = float(dcmInfile.info.PixelSpacing[0])
+    t1_image_data = np.transpose(pixeldataIn[int(params['t1_slicenumber'])-1,:,:]) # take slice-1 (0-index)
     
+    
+    #use slice 6 because slice 1 has too much sturctues in it
+    image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
+    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    x_center_px = int(x_center_px)
+    y_center_px = int(y_center_px)
+    
+    #load T2
+    t2_data_series = applyFilters(data.series_filelist, t2_series_filter)
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t2_data_series[0],headers_only=False)
+    t2_image_data = np.transpose(pixeldataIn[int(params['t2_slicenumber'])-1,:,:]) # take slice-1 (0-index)
+    
+    # T1 slice thickness determination (bounds are excluding last point)
+    ramp_1 = t1_image_data[y_center_px-4:y_center_px-1,x_center_px-7:x_center_px+8] # only center part (figure 11)
+    ramp_2 = t1_image_data[y_center_px+1:y_center_px+4,x_center_px-7:x_center_px+8]
+    
+    # not taking into account scanners that use max value for zero!
+    mean_ramp_1 = np.mean(ramp_1)
+    mean_ramp_2 = np.mean(ramp_2)
+    mean_ramps = (mean_ramp_1 + mean_ramp_2)/2.0
+    
+    # find full width half maximum for the ramps 
+    t1_fwhm_val = mean_ramps/2.0
+    ramp_1 = t1_image_data[y_center_px-4:y_center_px-1,:] # now the entire length of scan
+    ramp_2 = t1_image_data[y_center_px+1:y_center_px+4,:]
+
+
+    fwhm_ramp_1, t1_upper_1, t1_lower_1 = find_fwhm(t1_fwhm_val, ramp_1, x_center_px)
+    fwhm_ramp_2, t1_upper_2, t1_lower_2 = find_fwhm(t1_fwhm_val, ramp_2, x_center_px)
+    
+    t1_slice_thickness = 0.2*(fwhm_ramp_1*fwhm_ramp_2)/(fwhm_ramp_1+fwhm_ramp_2)*x_res
+    
+    # T2 slice thickness determination 
+    ramp_1 = t2_image_data[y_center_px-4:y_center_px-1,x_center_px-7:x_center_px+8] # only center part (figure 11)
+    ramp_2 = t2_image_data[y_center_px+1:y_center_px+4,x_center_px-7:x_center_px+8]
+    
+    mean_ramp_1 = np.mean(ramp_1)
+    mean_ramp_2 = np.mean(ramp_2)
+    mean_ramps = (mean_ramp_1 + mean_ramp_2)/2.0
+    
+    # find full width half maximum for the ramps 
+    t2_fwhm_val = mean_ramps/2.0
+    ramp_1 = t2_image_data[y_center_px-4:y_center_px-1,:] # now the entire length of scan
+    ramp_2 = t2_image_data[y_center_px+1:y_center_px+4,:]
+
+
+    fwhm_ramp_1, t2_upper_1, t2_lower_1 = find_fwhm(t2_fwhm_val, ramp_1, x_center_px)
+    fwhm_ramp_2, t2_upper_2, t2_lower_2 = find_fwhm(t2_fwhm_val, ramp_2, x_center_px)
+    
+    t2_slice_thickness = 0.2*(fwhm_ramp_1*fwhm_ramp_2)/(fwhm_ramp_1+fwhm_ramp_2)*x_res
+    
+    # T1 plots
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.imshow(t1_image_data, cmap=plt.get_cmap("Greys_r"))
+    ax.add_patch(Rectangle((x_center_px-7, y_center_px+1), 15, 2,fc ='none', ec ='r', lw = 1) )
+    ax.add_patch(Rectangle((x_center_px-7, y_center_px-4), 15, 2,fc ='none', ec ='r', lw = 1) )
+    plt.title("ROI's in T1 image" )
+    plt.show()
+    
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.imshow(t1_image_data[y_center_px-10:y_center_px+10,x_center_px-51:x_center_px+50], cmap=plt.get_cmap("Greys_r"), vmin = t1_fwhm_val-1.0, vmax = t1_fwhm_val)
+    ax.axvline(x=50-t1_lower_1,color='red')
+    ax.axvline(x=50-t1_lower_2,color='blue')
+    ax.axvline(x=50+t1_upper_1,color='red')
+    ax.axvline(x=50+t1_upper_2,color='blue')
+    plt.title("FWHM's in T1 image (red = ramp 1, blue = ramp 2)" )
+    plt.show()
+    
+    # T2 plots
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.imshow(t2_image_data, cmap=plt.get_cmap("Greys_r"), vmin = 0, vmax= np.max(t2_image_data))
+    ax.add_patch(Rectangle((x_center_px-7, y_center_px+1), 15, 2,fc ='none', ec ='r', lw = 1) )
+    ax.add_patch(Rectangle((x_center_px-7, y_center_px-4), 15, 2,fc ='none', ec ='r', lw = 1) )
+    plt.title("ROI's in T2 image" )
+    plt.show()
+    
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.imshow(t2_image_data[y_center_px-10:y_center_px+10,x_center_px-51:x_center_px+50], cmap=plt.get_cmap("Greys_r"), vmin = t2_fwhm_val-1.0, vmax = t2_fwhm_val)
+    ax.axvline(x=50-t2_lower_1,color='red')
+    ax.axvline(x=50-t2_lower_2,color='blue')
+    ax.axvline(x=50+t2_upper_1,color='red')
+    ax.axvline(x=50+t2_upper_2,color='blue')
+    plt.title("FWHM's in T2 image (red = ramp 1, blue = ramp 2)" )
+    plt.show()
+    
+    # fig = plt.figure()
+    # ax = fig.add_subplot()
+    # ax.plot(np.transpose(t1_image_data[y_center_px-4:y_center_px-1,:]))
+    # ax.plot(mean_ramps/2.0*np.ones(t1_image_data.shape[0]))
+    # plt.show()
