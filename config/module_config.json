@@ -30,7 +30,19 @@
       	"SeriesDescription": "t T1 bw634_clear"
       	},
       "params": {
-      	"slicenumber": "1"
+      	"slicenumber": "1",
+      	"bg_factor": 5
+      }
+    },
+    "resolution_t2": {
+      "filters": {
+      	"SeriesDescription": "t T2 bw634_clear",
+      	"ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
+      	"EchoNumbers": "2"
+      	},
+      "params": {
+      	"slicenumber": "1",
+      	"bg_factor": 4
       }
     },
     "acr_series": {

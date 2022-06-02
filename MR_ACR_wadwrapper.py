@@ -66,6 +66,8 @@ if __name__ == "__main__":
             MR_ACR_lib.geometry_xy(data, results, action)
         elif name == 'resolution_t1':
             MR_ACR_lib.resolution_t1(data, results, action)
+        elif name == 'resolution_t2':
+            MR_ACR_lib.resolution_t2(data, results, action)
         #elif name == 'acr_series':
         #    MR_ACR_lib.acr_series(data, results, action)
 

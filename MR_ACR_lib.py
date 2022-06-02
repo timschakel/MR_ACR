@@ -13,7 +13,8 @@ import pydicom
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
-from MR_ACR_util import find_z_length,find_xy_diameter,retrieve_ellipse_parameters
+from MR_ACR_util import (find_z_length,find_xy_diameter,retrieve_ellipse_parameters,
+                         check_resolution_peaks1,check_resolution_peaks2)
 
 ### Helper functions
 def getValue(ds, label):
@@ -166,64 +167,95 @@ def resolution_t1(data,results,action):
     res_locs[:,0] = res_coordoffsets[:,0] + int(x_center_px)
     res_locs[:,1] = res_coordoffsets[:,1] + int(y_center_px)
     
-    # breakpoint()
+    bg_coordoffsets = [22,37] #location wrt center
+    bg = image_data[bg_coordoffsets[0]+int(y_center_px):bg_coordoffsets[0]+int(y_center_px)+15,
+                    bg_coordoffsets[1]+int(x_center_px):bg_coordoffsets[1]+int(x_center_px)+15] # 15x15 size
+    mean_bg = np.mean(bg)
     
-    # Check the horizontal and vertical resolution
-    # The grid has hole diameters of 1.1, 1.0, 0.9 mm
-    # The spacing is twice the hole diameter
-    # Use a search range of ~ 10 mm
-    # Take horizontal/vertical profiles through the hole grids
-    # If 4 peaks are found, the grid is considered resolved
-    # If < 4 peaks are found, move to the next row/column in the grid
-    x_range = 11 #pixels
-    y_range = 11 #pixels
+    resolution_resolved1 = check_resolution_peaks1(image_data, res_locs, mean_bg,params['bg_factor'])
+    #resolution_resolved2 = check_resolution_peaks2(image_data, res_locs)
+    
+    # Show the resolution insert:
+    res_full_coordoffsets = np.array([13,-63]) # wrt center of phantom
+    res_full_size = np.array([50,125])
+    image_res = image_data[res_full_coordoffsets[0]+int(y_center_px):res_full_coordoffsets[0]+int(y_center_px)+res_full_size[0],
+                           res_full_coordoffsets[1]+int(x_center_px):res_full_coordoffsets[1]+int(x_center_px)+res_full_size[1] ]
+    saveas = "Resolution_T1.png"
+    plt.imshow(image_res,cmap='gray')
+    plt.title("Resolution_T1")
+    plt.axis("off")
+    plt.savefig(saveas, dpi=300)
+    
+    # Collect results
+    results.addBool("Resolution T1 HOR 1.1 passed", resolution_resolved1[0])
+    results.addBool("Resolution T1 HOR 1.0 passed", resolution_resolved1[1])
+    results.addBool("Resolution T1 HOR 0.9 passed", resolution_resolved1[2])
+    results.addBool("Resolution T1 VER 1.1 passed", resolution_resolved1[3])
+    results.addBool("Resolution T1 VER 1.0 passed", resolution_resolved1[4])
+    results.addBool("Resolution T1 VER 0.9 passed", resolution_resolved1[5])
+    results.addObject("Resolution T1", saveas)
+
+def resolution_t2(data,results,action):
+    params = action["params"]
+    filters = action["filters"]
+    """
+    2. Geometric Accuracy
+    Determine the high contrast spatial resolution
+    Use the T1 scan 
+    """
+    series_filter = {item:filters.get(item)for item in ["SeriesDescription"]}
+    type_filter = {item:filters.get(item)for item in ["ImageType"]}
+    echo_filter = {item:filters.get(item)for item in ["EchoNumbers"]}
+    data_series = applyFilters(data.series_filelist, series_filter)
+    data_series_type = applyFilters(data_series, type_filter)
+    data_series_type_echo = applyFilters(data_series_type, echo_filter)
+    
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
+    image_data = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
+    image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
+    
+    # location of the resolution insert is defined wrt center of the phantom
+    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+        
+    res_coordoffsets = np.array([
+        [-24,30],
+        [ -7,37],
+        [  0,30],
+        [ 16,37],
+        [ 24,31],
+        [ 39,37],]) #check and maybe correct?
+    
+    res_locs = np.zeros([6,2],dtype=int)
+    res_locs[:,0] = res_coordoffsets[:,0] + int(x_center_px)
+    res_locs[:,1] = res_coordoffsets[:,1] + int(y_center_px)
     
     bg_coordoffsets = [22,37] #location wrt center
     bg = image_data[bg_coordoffsets[0]+int(y_center_px):bg_coordoffsets[0]+int(y_center_px)+15,
                     bg_coordoffsets[1]+int(x_center_px):bg_coordoffsets[1]+int(x_center_px)+15] # 15x15 size
-    
     mean_bg = np.mean(bg)
-
     
-    #Horizontal 1.1
-    for y in range(y_range):
-        x_signal = image_data[res_locs[0,1]+y,res_locs[0,0]:res_locs[0,0]+x_range]
-        peaks,_ = find_peaks(x_signal, height=mean_bg)
-        print(len(peaks))
-        if len(peaks) == 4:
-            print('Resolution 1.1 resolved')
-            break
-        else:
-            continue
+    resolution_resolved1 = check_resolution_peaks1(image_data, res_locs, mean_bg,params['bg_factor'])
+    #resolution_resolved2 = check_resolution_peaks2(image_data, res_locs)
     
-    #Horizontal 1.0
-    for y in range(y_range):
-        x_signal = image_data[res_locs[2,1]+y,res_locs[2,0]:res_locs[2,0]+x_range]
-        peaks,_ = find_peaks(x_signal)
-        print(len(peaks))
-        if len(peaks) == 4:
-            print('Resolution 1.0 resolved')
-            break
-        else:
-            continue
-        
-    #Horizontal 0.9
-    for y in range(y_range):
-        x_signal = image_data[res_locs[4,1]+y,res_locs[4,0]:res_locs[4,0]+x_range]
-        peaks,_ = find_peaks(x_signal, height=2*mean_bg)
-        print(len(peaks))
-        if len(peaks) == 4:
-            print('Resolution 0.9 resolved')
-            break
-        else:
-            continue
+    # Show the resolution insert:
+    res_full_coordoffsets = np.array([13,-63]) # wrt center of phantom
+    res_full_size = np.array([50,125])
+    image_res = image_data[res_full_coordoffsets[0]+int(y_center_px):res_full_coordoffsets[0]+int(y_center_px)+res_full_size[0],
+                           res_full_coordoffsets[1]+int(x_center_px):res_full_coordoffsets[1]+int(x_center_px)+res_full_size[1] ]
+    saveas = "Resolution_T2.png"
+    plt.imshow(image_res,cmap='gray')
+    plt.title("Resolution_T2")
+    plt.axis("off")
+    plt.savefig(saveas, dpi=300)
     
-    
-    # plt.figure(2)
-    # plt.plot(x_signal)
-    # plt.scatter(peaks,x_signal[peaks])
-
-
+    # Collect results
+    results.addBool("Resolution T2 HOR 1.1 passed", resolution_resolved1[0])
+    results.addBool("Resolution T2 HOR 1.0 passed", resolution_resolved1[1])
+    results.addBool("Resolution T2 HOR 0.9 passed", resolution_resolved1[2])
+    results.addBool("Resolution T2 VER 1.1 passed", resolution_resolved1[3])
+    results.addBool("Resolution T2 VER 1.0 passed", resolution_resolved1[4])
+    results.addBool("Resolution T2 VER 0.9 passed", resolution_resolved1[5])
+    results.addObject("Resolution T2", saveas)
         
         
     

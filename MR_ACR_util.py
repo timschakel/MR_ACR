@@ -17,6 +17,7 @@ from skimage.transform import radon
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
+from scipy.signal import find_peaks
 
 def detect_edges(
     image, sigma=0.3, low_threshold=750, high_threshold=None
@@ -425,4 +426,172 @@ def find_z_length(image_data_z,pixel_spacing,acqdate,params):
     
     return z_length_mm,z_result_image_filename
     
-
+def check_resolution_peaks1(image_data, res_locs, mean_bg, bg_factor):
+    """
+    # Check the horizontal and vertical resolution
+    # The grid has hole diameters of 1.1, 1.0, 0.9 mm
+    # The spacing is twice the hole diameter
+    # Use a search range of ~ 10 mm
+    # Take horizontal/vertical profiles through the hole grids
+    # If 4 peaks are found, the grid is considered resolved
+    # (To avoid peaks from noise, the peaks need to be above 5 times the mean background signal)
+    # If < 4 peaks are found, move to the next row/column in the grid
+    """
+    heigth = bg_factor * mean_bg
+    resolution_resolved = [False, False, False, False, False, False]
+    
+    #mean_x_signal = np.mean(image_data[ res_locs[0,1]:res_locs[0,1]+y_range,
+    #                                    res_locs[0,0]:res_locs[0,0]+x_range],axis=0)
+    #mean_y_signal = np.mean(image_data[ res_locs[1,1]:res_locs[1,1]+y_range,
+    #                                    res_locs[1,0]-x_range:res_locs[1,0]],axis=1)
+    
+    # Horizontal 1.1
+    x_range = 11 #pixels
+    y_range = 11 #pixels
+    
+    for y in range(y_range):
+        x_signal = image_data[ res_locs[0,1]+y,
+                               res_locs[0,0]:res_locs[0,0]+x_range]
+        peaks,_ = find_peaks(x_signal,height=heigth)
+        if len(peaks) == 4:
+            print('Horizontal resolution 1.1 resolved')
+            resolution_resolved[0] = True
+            break
+        
+    # Horizontal 1.0
+    x_range = 11 #pixels
+    y_range = 11 #pixels
+    for y in range(y_range):
+        x_signal = image_data[ res_locs[2,1]+y,
+                               res_locs[2,0]:res_locs[2,0]+x_range]
+        peaks,_ = find_peaks(x_signal,height=heigth)
+        if len(peaks) == 4:
+            print('Horizontal resolution 1.0 resolved')
+            resolution_resolved[1] = True
+            break
+        
+    # Horizontal 0.9 --> smaller search range
+    x_range = 10#pixels
+    y_range = 10 #pixels
+    for y in range(y_range):
+        x_signal = image_data[ res_locs[4,1]+y,
+                               res_locs[4,0]:res_locs[4,0]+x_range]
+        peaks,_ = find_peaks(x_signal,height=heigth)
+        if len(peaks) == 4:
+            print('Horizontal resolution 0.9 resolved')
+            resolution_resolved[2] = True
+            break
+    
+    # Vertical 1.1
+    x_range = 11 #pixels
+    y_range = 11 #pixels
+    for x in range(x_range):
+        y_signal = image_data[ res_locs[1,1]:res_locs[1,1]+y_range,
+                               res_locs[1,0]-x]
+        peaks,_ = find_peaks(y_signal,height=heigth)
+        if len(peaks) == 4:
+            print('Vertical resolution 1.1 resolved')
+            resolution_resolved[3] = True
+            break
+    
+    # Vertical 1.0
+    x_range = 11 #pixels
+    y_range = 11 #pixels
+    for x in range(x_range):
+        y_signal = image_data[ res_locs[3,1]:res_locs[3,1]+y_range,
+                               res_locs[3,0]-x]
+        peaks,_ = find_peaks(y_signal,height=heigth)
+        if len(peaks) == 4:
+            print('Vertical resolution 1.0 resolved')
+            resolution_resolved[4] = True
+            break
+        
+    # Vertical 0.9
+    x_range = 10 #pixels
+    y_range = 10 #pixels
+    
+    for x in range(x_range):
+        y_signal = image_data[ res_locs[5,1]:res_locs[5,1]+y_range,
+                               res_locs[5,0]-x]
+        peaks,_ = find_peaks(y_signal,height=heigth)
+        if len(peaks) == 4:
+            print('Vertical resolution 0.9 resolved')
+            resolution_resolved[5] = True
+            break
+    
+    # make a figure...
+    return resolution_resolved
+    
+def check_resolution_peaks2(image_data, res_locs):
+    """
+    # Check the horizontal and vertical resolution
+    # The grid has hole diameters of 1.1, 1.0, 0.9 mm
+    # The spacing is twice the hole diameter
+    # Use a search range of ~ 10 mm
+    # Take the mean horizontal/vertical profile and find peaks
+    # If 4 peaks are found, the grid is considered resolved
+    """  
+    resolution_resolved = np.zeros(6,dtype=int)
+    
+    #Horizontal 1.1
+    x_range = 11 #pixels
+    y_range = 11 #pixels
+    x_signal = np.sum(image_data[ res_locs[0,1]:res_locs[0,1]+y_range,
+                                  res_locs[0,0]:res_locs[0,0]+x_range],axis=0)
+    peaks,_ = find_peaks(x_signal)
+    if len(peaks) == 4:
+        print('Horizontal resolution 1.1 resolved')
+        resolution_resolved[0] = 1
+       
+    #Horizontal 1.0
+    x_range = 11 #pixels
+    y_range = 11 #pixels
+    x_signal = np.sum(image_data[ res_locs[2,1]:res_locs[2,1]+y_range,
+                                  res_locs[2,0]:res_locs[2,0]+x_range],axis=0)
+    peaks,_ = find_peaks(x_signal)
+    if len(peaks) == 4:
+        print('Horizontal resolution 1.0 resolved')
+        resolution_resolved[1] = 1
+      
+    #Horizontal 0.9
+    x_range = 10 #pixels
+    y_range = 10 #pixels
+    x_signal = np.sum(image_data[ res_locs[4,1]:res_locs[4,1]+y_range,
+                                  res_locs[4,0]:res_locs[4,0]+x_range],axis=0)
+    peaks,_ = find_peaks(x_signal)
+    if len(peaks) == 4:
+        print('Horizontal resolution 0.9 resolved')
+        resolution_resolved[2] = 1
+    
+    #Vertical 1.1
+    x_range = 11 #pixels
+    y_range = 11 #pixels
+    y_signal = np.sum(image_data[ res_locs[1,1]:res_locs[1,1]+y_range,
+                                  res_locs[1,0]-x_range:res_locs[1,0]],axis=1)
+    peaks,_ = find_peaks(y_signal)
+    if len(peaks) == 4:
+        print('Vertical resolution 1.1 resolved')
+        resolution_resolved[3] = 1
+        
+    #Vertical 1.0
+    x_range = 11 #pixels
+    y_range = 11 #pixels
+    y_signal = np.sum(image_data[ res_locs[3,1]:res_locs[3,1]+y_range,
+                                  res_locs[3,0]-x_range:res_locs[3,0]],axis=1)
+    peaks,_ = find_peaks(y_signal)
+    if len(peaks) == 4:
+        print('Vertical resolution 1.0 resolved')
+        resolution_resolved[4] = 1
+        
+    #Vertical 0.9
+    x_range = 10 #pixels
+    y_range = 10 #pixels
+    y_signal = np.sum(image_data[ res_locs[5,1]:res_locs[5,1]+y_range,
+                                  res_locs[5,0]-x_range:res_locs[5,0]],axis=1)
+    peaks,_ = find_peaks(y_signal)
+    if len(peaks) == 4:
+        print('Vertical resolution 0.9 resolved')
+        resolution_resolved[5] = 1
+        
+    # make a figure
+    return resolution_resolved
