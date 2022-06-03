@@ -77,6 +77,14 @@
     	"params": {
     	 "slicenumber": "7"
     	}
+    },
+     "percent_signal_ghosting": {
+        "filters": {
+    	    "SeriesDescription": "t T1 bw634_clear"
+    	},
+    	"params": {
+    	 "slicenumber": "7"
+    	}
     }
   },
   "cfgformat": "20220530",

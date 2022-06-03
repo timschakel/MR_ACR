@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle,Circle
 from scipy.signal import find_peaks
 
-from MR_ACR_util import find_z_length,find_xy_diameter,retrieve_ellipse_parameters,check_resolution_peaks1,check_resolution_peaks2,find_fwhm,find_min_and_max_intensity_region
+from MR_ACR_util import find_z_length,find_xy_diameter,retrieve_ellipse_parameters,check_resolution_peaks1,check_resolution_peaks2,find_fwhm,find_min_and_max_intensity_region,get_mean_circle_ROI,get_mean_rect_ROI
 
 ### Helper functions
 def getValue(ds, label):
@@ -432,10 +432,69 @@ def image_intensity_uniformity(data, results, action):
     axs[1,1].imshow(t2_image_data, cmap=plt.get_cmap("Greys_r"), vmin = t2_stats[2]+10.0, vmax = t2_stats[2]+20.0)
     axs[1,1].add_patch(Circle((x_center_px, y_center_px+3), radius = radius_large_ROI, fill=False, ec = 'r'))
     axs[1,1].add_patch(Circle(t2_stats[3], radius = radius_small_ROI, fill=False, ec = 'b'))
-    axs[1,1].set_title('T2 min ROI')
+    axs[1,1].set_title('T2 min ROI')    
     plt.savefig(fig_filename, dpi=300)
     
     # write results:
     results.addFloat("PIU T1", t1_PIU)
     results.addFloat("PIU T2", t2_PIU)
     results.addObject("Image Intensity Uniformity test", fig_filename)
+    
+def percent_signal_ghosting(data, results, action):
+    params = action["params"]
+    filters = action["filters"]
+    fig_filename = "percent_signal_ghosting_test.png"
+    """
+    5. Percent Signal Ghosting
+    Draw some ROI's inside and outside of the phantom
+    """
+    #load T1
+    t1_series_filter = {item:filters.get(item)for item in ["SeriesDescription"]}
+    t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
+    x_res = float(dcmInfile.info.PixelSpacing[0])
+    t1_image_data = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
+    
+    #use slice 6 because slice 1 has too much sturctues in it
+    image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
+    x_center_px, y_center_px, width, height = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:4]
+    width = int(width)
+    height = int(height)
+    x_center_px = int(x_center_px)
+    y_center_px = int(y_center_px)
+    
+    # circle inside phantom
+    radius_large_ROI = np.sqrt(200/np.pi)*10/x_res # roi should be 195cm^2-205cm^2 -> r in cm -> r in mm -> r in voxels
+    large_circle = Circle((x_center_px, y_center_px+3), radius = radius_large_ROI, fill=False, ec='r')
+    
+    #rectangles outside phantom
+    top_rect = Rectangle((x_center_px-33, y_center_px-height-20), 66, 15, fill=False, ec='b')
+    bot_rect = Rectangle((x_center_px-33, y_center_px+height+5), 66, 15, fill=False, ec='g')
+    left_rect = Rectangle((x_center_px-width-20, y_center_px-33), 15, 66, fill=False, ec='y')
+    right_rect = Rectangle((x_center_px+width+5, y_center_px-33), 15, 66, fill=False, ec='m')
+    
+    
+    phantom_mean_val = get_mean_circle_ROI(t1_image_data, large_circle)
+    
+    top_mean_val = get_mean_rect_ROI(t1_image_data, top_rect)
+    bot_mean_val = get_mean_rect_ROI(t1_image_data, bot_rect)
+    left_mean_val = get_mean_rect_ROI(t1_image_data, left_rect)
+    right_mean_val = get_mean_rect_ROI(t1_image_data, right_rect)
+    
+    ghosting_ratio = np.abs(((top_mean_val + bot_mean_val) - (left_mean_val + right_mean_val))/(2*phantom_mean_val))
+    
+    fig, ax = plt.subplots()
+    ax.imshow(t1_image_data, cmap=plt.get_cmap("Greys_r"))
+    ax.add_patch(large_circle)
+    ax.add_patch(top_rect)
+    ax.add_patch(bot_rect)
+    ax.add_patch(left_rect)
+    ax.add_patch(right_rect)
+    ax.set_title("T1 map with ROI's")
+    plt.savefig(fig_filename, dpi=300)
+    
+    # write results:
+    results.addFloat("Ghosting Ratio", ghosting_ratio)
+    results.addObject("Percent Signal Ghosting", fig_filename)
+    
+    

@@ -614,6 +614,17 @@ def overlapping_circles(big, small):
 def point_in_circle(point, circle):
     return ((point[0]-circle.center[0])**2 + (point[1]-circle.center[1])**2) < circle.radius**2
 
+def get_mean_circle_ROI(image, circle):
+    tot_ROI = 0
+    n_ROI = 0
+    for y in range(circle.center[1]-int(np.ceil(circle.radius)), circle.center[1]+int(np.ceil(circle.radius))):
+        for x in range(circle.center[0]-int(np.ceil(circle.radius)), circle.center[0]+int(np.ceil(circle.radius))):
+            if point_in_circle((x, y), circle):
+                tot_ROI += image[y,x]
+                n_ROI += 1
+    
+    return tot_ROI/n_ROI
+
 def find_min_and_max_intensity_region(image, LROI, small_radius):
     #LROI -> 200cm^2 circle, SROI -> 1cm^2
     start_point = (LROI.center[0]-int(np.ceil(LROI.radius)), LROI.center[1]-int(np.ceil(LROI.radius)))
@@ -631,15 +642,7 @@ def find_min_and_max_intensity_region(image, LROI, small_radius):
         for x_offset in range(0,int(np.ceil(LROI.radius*2))):
             SROI.set_center((start_point[0] + x_offset, start_point[1] + y_offset))
             if overlapping_circles(LROI, SROI):
-                tot_SROI = 0 
-                n_SROI = 0
-                for y in range(SROI.center[1]-int(np.ceil(SROI.radius)), SROI.center[1]+int(np.ceil(SROI.radius))):
-                    for x in range(SROI.center[0]-int(np.ceil(SROI.radius)), SROI.center[0]+int(np.ceil(SROI.radius))):
-                        if point_in_circle((x, y), SROI):
-                            tot_SROI += image[y,x]
-                            n_SROI += 1
-                
-                mean_SROI = tot_SROI/n_SROI
+                mean_SROI = get_mean_circle_ROI(image, SROI)
                 if mean_SROI > max_val:
                     max_val = mean_SROI
                     max_loc = SROI.center
@@ -648,3 +651,21 @@ def find_min_and_max_intensity_region(image, LROI, small_radius):
                     min_loc = SROI.center
     
     return max_val, max_loc, min_val, min_loc
+
+"""
+returns the mean value, but will also change the rect to be inside the domain of image
+"""
+def get_mean_rect_ROI(image, rect):
+    bounds = image.shape
+    if rect.get_x() < 0:
+        rect.set_x(0)
+    if rect.get_y() < 0:
+        rect.set_y(0)
+    if rect.get_x() + rect.get_width() > bounds[1]-1:
+        rect.set_width(bounds[1]-1-rect.get_x())
+    if rect.get_y() + rect.get_height() > bounds[0]-1:
+        rect.set_height(bounds[0]-1-rect.get_y())
+    
+    mean_val = np.mean(image[rect.get_y():rect.get_y()+rect.get_height(),rect.get_x():rect.get_x()+rect.get_width()])
+    return mean_val
+        
