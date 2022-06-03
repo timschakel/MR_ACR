@@ -83,6 +83,17 @@
       	"slicenumberbot": "1",
       	"slicenumbertop": "11"
       }
+    },
+    "slice_pos_t2": {
+      "filters": {
+      	"SeriesDescription": "t T2 bw634_clear",
+      	"ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
+      	"EchoNumbers": "2"
+      	},
+      "params": {
+      	"slicenumberbot": "1",
+      	"slicenumbertop": "11"
+      }
     }
   },
   "cfgformat": "20220530",

@@ -76,5 +76,7 @@ if __name__ == "__main__":
             MR_ACR_lib.percent_signal_ghosting(data, results, action)
         elif name == 'slice_pos_t1':
             MR_ACR_lib.slice_pos_t1(data, results, action)
+        elif name == 'slice_pos_t2':
+            MR_ACR_lib.slice_pos_t2(data, results, action)
 
     results.write()
