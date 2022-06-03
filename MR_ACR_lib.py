@@ -11,10 +11,10 @@ import wad_qc.module.moduledata
 import numpy as np
 import pydicom
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Rectangle,Circle
 from scipy.signal import find_peaks
 
-from MR_ACR_util import find_z_length,find_xy_diameter,retrieve_ellipse_parameters,check_resolution_peaks1,check_resolution_peaks2,find_fwhm
+from MR_ACR_util import find_z_length,find_xy_diameter,retrieve_ellipse_parameters,check_resolution_peaks1,check_resolution_peaks2,find_fwhm,find_min_and_max_intensity_region
 
 ### Helper functions
 def getValue(ds, label):
@@ -365,3 +365,77 @@ def slice_thickness(data, results, action):
     results.addFloat("Slice Thickness T1", t1_slice_thickness)
     results.addFloat("Slice Thickness T2", t2_slice_thickness)
     results.addObject("Slice Thickness test", fig_filename)
+
+def image_intensity_uniformity(data, results, action):
+    params = action["params"]
+    filters = action["filters"]
+    fig_filename = "image_intensity_uniformity_test.png"
+    """
+    5. Image Intensity Uniformity
+    Draw some ROI's and determine the highest and lowest signal intensity areas
+    """
+    #load T1
+    t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
+    t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
+    x_res = float(dcmInfile.info.PixelSpacing[0])
+    t1_image_data = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
+    
+    
+    #use slice 6 because slice 1 has too much sturctues in it
+    image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
+    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    x_center_px = int(x_center_px)
+    y_center_px = int(y_center_px)
+    
+    #load T2
+    t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
+    type_filter = {item:filters.get(item)for item in ["ImageType"]}
+    echo_filter = {item:filters.get(item)for item in ["EchoNumbers"]}
+    data_series = applyFilters(data.series_filelist, t2_series_filter)
+    data_series_type = applyFilters(data_series, type_filter)
+    data_series_type_echo = applyFilters(data_series_type, echo_filter)
+    
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
+    t2_image_data = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
+    
+    radius_large_ROI = np.sqrt(200/np.pi)*10/x_res # roi should be 195cm^2-205cm^2 -> r in cm -> r in mm -> r in voxels
+    radius_small_ROI = np.sqrt(1/np.pi)*10/x_res
+    large_circle = Circle((x_center_px, y_center_px+3), radius = radius_large_ROI, fill=False)
+    
+    #T1 stats
+    t1_stats = find_min_and_max_intensity_region(t1_image_data, large_circle, radius_small_ROI)
+    #percent integral uniformity (PIU)
+    t1_PIU = 100 * (1 - (t1_stats[0]-t1_stats[2])/(t1_stats[0]+t1_stats[2]))
+    
+    #T2 stats 
+    t2_stats = find_min_and_max_intensity_region(t2_image_data, large_circle, radius_small_ROI)
+    t2_PIU = 100 * (1 - (t2_stats[0]-t2_stats[2])/(t2_stats[0]+t2_stats[2]))
+    
+    fig, axs = plt.subplots(2,2)
+    axs[0,0].imshow(t1_image_data, cmap=plt.get_cmap("Greys_r"), vmin = t1_stats[0]-1.0, vmax = t1_stats[0])
+    axs[0,0].add_patch(Circle((x_center_px, y_center_px+3), radius = radius_large_ROI, fill=False, ec = 'r'))
+    axs[0,0].add_patch(Circle(t1_stats[1], radius = radius_small_ROI, fill=False, ec = 'b'))
+    axs[0,0].set_title('T1 max ROI')
+    
+    axs[1,0].imshow(t1_image_data, cmap=plt.get_cmap("Greys_r"), vmin = t1_stats[2]+10.0, vmax = t1_stats[2]+20.0)
+    axs[1,0].add_patch(Circle((x_center_px, y_center_px+3), radius = radius_large_ROI, fill=False, ec = 'r'))
+    axs[1,0].add_patch(Circle(t1_stats[3], radius = radius_small_ROI, fill=False, ec = 'b'))
+    axs[1,0].set_title('T1 min ROI')
+    
+    
+    axs[0,1].imshow(t2_image_data, cmap=plt.get_cmap("Greys_r"), vmin = t2_stats[0]-1.0, vmax = t2_stats[0])
+    axs[0,1].add_patch(Circle((x_center_px, y_center_px+3), radius = radius_large_ROI, fill=False, ec = 'r'))
+    axs[0,1].add_patch(Circle(t2_stats[1], radius = radius_small_ROI, fill=False, ec = 'b'))
+    axs[0,1].set_title('T2 max ROI')
+    
+    axs[1,1].imshow(t2_image_data, cmap=plt.get_cmap("Greys_r"), vmin = t2_stats[2]+10.0, vmax = t2_stats[2]+20.0)
+    axs[1,1].add_patch(Circle((x_center_px, y_center_px+3), radius = radius_large_ROI, fill=False, ec = 'r'))
+    axs[1,1].add_patch(Circle(t2_stats[3], radius = radius_small_ROI, fill=False, ec = 'b'))
+    axs[1,1].set_title('T2 min ROI')
+    plt.savefig(fig_filename, dpi=300)
+    
+    # write results:
+    results.addFloat("PIU T1", t1_PIU)
+    results.addFloat("PIU T2", t2_PIU)
+    results.addObject("Image Intensity Uniformity test", fig_filename)

@@ -16,7 +16,7 @@ from skimage import feature
 from skimage.transform import radon
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse
+from matplotlib.patches import Ellipse,Circle
 from scipy.signal import find_peaks
 
 def detect_edges(
@@ -607,3 +607,44 @@ def find_fwhm(val, ramp, xcenter):
     fwhm = upper + lower
     return fwhm, upper, lower
         
+def overlapping_circles(big, small):
+    d = np.sqrt((small.center[0]-big.center[0])**2 + (small.center[1]-big.center[1])**2)
+    return big.radius > (d + small.radius)
+
+def point_in_circle(point, circle):
+    return ((point[0]-circle.center[0])**2 + (point[1]-circle.center[1])**2) < circle.radius**2
+
+def find_min_and_max_intensity_region(image, LROI, small_radius):
+    #LROI -> 200cm^2 circle, SROI -> 1cm^2
+    start_point = (LROI.center[0]-int(np.ceil(LROI.radius)), LROI.center[1]-int(np.ceil(LROI.radius)))
+    SROI = Circle(start_point, small_radius)
+    # init empty values
+    max_val = 0
+    max_loc = (0, 0)
+    min_val = np.max(image)
+    min_loc = (0, 0)
+    #loop in square region over the large circle
+    #check if small circle is entirely inside
+    #if true check value of region 
+    #if larger than max or smaller than min set new values
+    for y_offset in range(0,int(np.ceil(LROI.radius*2))):
+        for x_offset in range(0,int(np.ceil(LROI.radius*2))):
+            SROI.set_center((start_point[0] + x_offset, start_point[1] + y_offset))
+            if overlapping_circles(LROI, SROI):
+                tot_SROI = 0 
+                n_SROI = 0
+                for y in range(SROI.center[1]-int(np.ceil(SROI.radius)), SROI.center[1]+int(np.ceil(SROI.radius))):
+                    for x in range(SROI.center[0]-int(np.ceil(SROI.radius)), SROI.center[0]+int(np.ceil(SROI.radius))):
+                        if point_in_circle((x, y), SROI):
+                            tot_SROI += image[y,x]
+                            n_SROI += 1
+                
+                mean_SROI = tot_SROI/n_SROI
+                if mean_SROI > max_val:
+                    max_val = mean_SROI
+                    max_loc = SROI.center
+                if mean_SROI < min_val:
+                    min_val = mean_SROI
+                    min_loc = SROI.center
+    
+    return max_val, max_loc, min_val, min_loc

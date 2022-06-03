@@ -60,17 +60,19 @@ if __name__ == "__main__":
     for name,action in config['actions'].items():
         if name == 'acqdatetime':
             MR_ACR_lib.acqdatetime(data, results, action)
-        elif name == 'geometry_z':
-            MR_ACR_lib.geometry_z(data, results, action)
-        elif name == 'geometry_xy':
-            MR_ACR_lib.geometry_xy(data, results, action)
-        elif name == 'resolution_t1':
-            MR_ACR_lib.resolution_t1(data, results, action)
-        elif name == 'slice_thickness':
-            MR_ACR_lib.slice_thickness(data, results, action)
-        elif name == 'resolution_t2':
-            MR_ACR_lib.resolution_t2(data, results, action)
-        #elif name == 'acr_series':
+        # elif name == 'geometry_z':
+        #     MR_ACR_lib.geometry_z(data, results, action)
+        # elif name == 'geometry_xy':
+        #     MR_ACR_lib.geometry_xy(data, results, action)
+        # elif name == 'resolution_t1':
+        #     MR_ACR_lib.resolution_t1(data, results, action)
+        # elif name == 'slice_thickness':
+        #     MR_ACR_lib.slice_thickness(data, results, action)
+        # elif name == 'resolution_t2':
+        #     MR_ACR_lib.resolution_t2(data, results, action)
+        elif name == 'image_intensity_uniformity':
+            MR_ACR_lib.image_intensity_uniformity(data, results, action)
+        # elif name == 'acr_series':
         #    MR_ACR_lib.acr_series(data, results, action)
 
     results.write()
