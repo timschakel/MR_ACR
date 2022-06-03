@@ -597,22 +597,13 @@ def check_resolution_peaks2(image_data, res_locs):
     return resolution_resolved
 
 def find_fwhm(val, ramp, xcenter):
-    sum_width = 0
-    sum_upper = 0
-    sum_lower = 0
-    for i in range(ramp.shape[0]):
-        line = ramp[i,:]
-        # x -> (idx, val) pair. find first idx where value is lower than val
-        # xcenter -> end
-        upper = next(x[0] for x in enumerate(line[xcenter:]) if x[1] < val)
-        # xcenter -> begin
-        lower = next(x[0] for x in enumerate(np.flip(line[0:xcenter])) if x[1] < val)
-        sum_width += upper + lower
-        sum_upper += upper
-        sum_lower += lower
-        
-    fwhm = sum_width/ramp.shape[0]
-    upper = sum_upper/ramp.shape[0]
-    lower = sum_lower/ramp.shape[0]
+    line = np.mean(ramp,axis=0)
+    # x -> (idx, val) pair. find first idx where value is lower than val
+    # xcenter -> end
+    upper = next(x[0] for x in enumerate(line[xcenter:]) if x[1] < val)
+    # xcenter -> begin
+    lower = next(x[0] for x in enumerate(np.flip(line[0:xcenter])) if x[1] < val)
+    
+    fwhm = upper + lower
     return fwhm, upper, lower
         

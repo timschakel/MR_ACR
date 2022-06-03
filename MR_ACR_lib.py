@@ -261,22 +261,18 @@ def resolution_t2(data,results,action):
 def slice_thickness(data, results, action):
     params = action["params"]
     filters = action["filters"]
-    t1_rois_fig = "t1_roi.png"
-    t1_fwhm_fig = "t1_fwhm.png"
-    t2_rois_fig = "t2_roi.png"
-    t2_fwhm_fig = "t2_fwhm.png"
+    fig_filename = "slice_thickness_test.png"
     """
     3. Slice Thickness Accuracy
     Determine the slice thickness using the ramps in slice 1
     Use the T1 & T2 scan 
     """
     t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
-    t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
     #load T1
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
     dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
     x_res = float(dcmInfile.info.PixelSpacing[0])
-    t1_image_data = np.transpose(pixeldataIn[int(params['t1_slicenumber'])-1,:,:]) # take slice-1 (0-index)
+    t1_image_data = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
     
     
     #use slice 6 because slice 1 has too much sturctues in it
@@ -286,9 +282,16 @@ def slice_thickness(data, results, action):
     y_center_px = int(y_center_px)
     
     #load T2
-    t2_data_series = applyFilters(data.series_filelist, t2_series_filter)
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t2_data_series[0],headers_only=False)
-    t2_image_data = np.transpose(pixeldataIn[int(params['t2_slicenumber'])-1,:,:]) # take slice-1 (0-index)
+    t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
+    type_filter = {item:filters.get(item)for item in ["ImageType"]}
+    echo_filter = {item:filters.get(item)for item in ["EchoNumbers"]}
+    data_series = applyFilters(data.series_filelist, t2_series_filter)
+    data_series_type = applyFilters(data_series, type_filter)
+    data_series_type_echo = applyFilters(data_series_type, echo_filter)
+    
+    
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
+    t2_image_data = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
     
     # T1 slice thickness determination (bounds are excluding last point)
     ramp_1 = t1_image_data[y_center_px-4:y_center_px-1,x_center_px-7:x_center_px+8] # only center part (figure 11)
@@ -330,47 +333,35 @@ def slice_thickness(data, results, action):
     t2_slice_thickness = 0.2*(fwhm_ramp_1*fwhm_ramp_2)/(fwhm_ramp_1+fwhm_ramp_2)*x_res
     
     # T1 plots
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.imshow(t1_image_data, cmap=plt.get_cmap("Greys_r"))
-    ax.add_patch(Rectangle((x_center_px-7, y_center_px+1), 15, 2,fc ='none', ec ='r', lw = 1) )
-    ax.add_patch(Rectangle((x_center_px-7, y_center_px-4), 15, 2,fc ='none', ec ='r', lw = 1) )
-    plt.title("ROI's in T1 image" )
-    plt.savefig(t1_rois_fig, dpi=300)
+    fig,axs = plt.subplots(2,2)
+    axs[0,0].imshow(t1_image_data, cmap=plt.get_cmap("Greys_r"))
+    axs[0,0].add_patch(Rectangle((x_center_px-7, y_center_px+1), 15, 2,fc ='none', ec ='b', lw = 1) )
+    axs[0,0].add_patch(Rectangle((x_center_px-7, y_center_px-4), 15, 2,fc ='none', ec ='r', lw = 1) )
+    axs[0,0].set_title("ROI's in T1 image" )
     
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.imshow(t1_image_data[y_center_px-10:y_center_px+10,x_center_px-51:x_center_px+50], cmap=plt.get_cmap("Greys_r"), vmin = t1_fwhm_val-1.0, vmax = t1_fwhm_val)
-    ax.axvline(x=50-t1_lower_1,color='red')
-    ax.axvline(x=50-t1_lower_2,color='blue')
-    ax.axvline(x=50+t1_upper_1,color='red')
-    ax.axvline(x=50+t1_upper_2,color='blue')
-    plt.title("FWHM's in T1 image (red = top ramp , blue = bot ramp)")
-    plt.savefig(t1_fwhm_fig, dpi=300)
+    axs[1,0].imshow(t1_image_data[y_center_px-10:y_center_px+10,x_center_px-51:x_center_px+50], cmap=plt.get_cmap("Greys_r"), vmin = t1_fwhm_val-1.0, vmax = t1_fwhm_val)
+    axs[1,0].axvline(x=50-t1_lower_1,color='red')
+    axs[1,0].axvline(x=50-t1_lower_2,color='blue')
+    axs[1,0].axvline(x=50+t1_upper_1,color='red')
+    axs[1,0].axvline(x=50+t1_upper_2,color='blue')
+    axs[1,0].set_title("FWHM's in T1 image")
     
     # T2 plots
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.imshow(t2_image_data, cmap=plt.get_cmap("Greys_r"), vmin = 0, vmax= np.max(t2_image_data))
-    ax.add_patch(Rectangle((x_center_px-7, y_center_px+1), 15, 2,fc ='none', ec ='r', lw = 1) )
-    ax.add_patch(Rectangle((x_center_px-7, y_center_px-4), 15, 2,fc ='none', ec ='r', lw = 1) )
-    plt.title("ROI's in T2 image" )
-    plt.savefig(t2_rois_fig, dpi=300)
+    axs[0,1].imshow(t2_image_data, cmap=plt.get_cmap("Greys_r"), vmin = 0, vmax= np.max(t2_image_data))
+    axs[0,1].add_patch(Rectangle((x_center_px-7, y_center_px+1), 15, 2,fc ='none', ec ='b', lw = 1) )
+    axs[0,1].add_patch(Rectangle((x_center_px-7, y_center_px-4), 15, 2,fc ='none', ec ='r', lw = 1) )
+    axs[0,1].set_title("ROI's in T2 image" )
     
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.imshow(t2_image_data[y_center_px-10:y_center_px+10,x_center_px-51:x_center_px+50], cmap=plt.get_cmap("Greys_r"), vmin = t2_fwhm_val-1.0, vmax = t2_fwhm_val)
-    ax.axvline(x=50-t2_lower_1,color='red')
-    ax.axvline(x=50-t2_lower_2,color='blue')
-    ax.axvline(x=50+t2_upper_1,color='red')
-    ax.axvline(x=50+t2_upper_2,color='blue')
-    plt.title("FWHM's in T2 image (red = top ramp , blue = bot ramp)")
-    plt.savefig(t2_fwhm_fig, dpi=300)
+    axs[1,1].imshow(t2_image_data[y_center_px-10:y_center_px+10,x_center_px-51:x_center_px+50], cmap=plt.get_cmap("Greys_r"), vmin = t2_fwhm_val-1.0, vmax = t2_fwhm_val)
+    axs[1,1].axvline(x=50-t2_lower_1,color='red')
+    axs[1,1].axvline(x=50-t2_lower_2,color='blue')
+    axs[1,1].axvline(x=50+t2_upper_1,color='red')
+    axs[1,1].axvline(x=50+t2_upper_2,color='blue')
+    axs[1,1].set_title("FWHM's in T2 image")
+    
+    plt.savefig(fig_filename, dpi=300)
     
     # write results:
     results.addFloat("Slice Thickness T1", t1_slice_thickness)
     results.addFloat("Slice Thickness T2", t2_slice_thickness)
-    results.addObject("T1 ROI's", t1_rois_fig)
-    results.addObject("T1 FWHM's", t1_fwhm_fig)
-    results.addObject("T2 ROI's", t2_rois_fig)
-    results.addObject("T2 FWHM's", t2_fwhm_fig)
+    results.addObject("Slice Thickness test", fig_filename)
