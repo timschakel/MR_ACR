@@ -66,6 +66,17 @@
     	"params": {
     	 "slicenumber": "1"
     	}
+    },
+    "image_intensity_uniformity": {
+        "filters": {
+    	    "t1_series_description": "t T1 bw634_clear",
+            "t2_series_description": "t T2 bw634_clear",
+            "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
+	    "EchoNumbers": "2"
+    	},
+    	"params": {
+    	 "slicenumber": "7"
+    	}
     }
   },
   "cfgformat": "20220530",
