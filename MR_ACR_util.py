@@ -446,8 +446,8 @@ def check_resolution_peaks1(image_data, res_locs, mean_bg, bg_factor):
     #                                    res_locs[1,0]-x_range:res_locs[1,0]],axis=1)
     
     # Horizontal 1.1
-    x_range = 11 #pixels
-    y_range = 11 #pixels
+    x_range = 12 #pixels
+    y_range = 12 #pixels
     
     for y in range(y_range):
         x_signal = image_data[ res_locs[0,1]+y,

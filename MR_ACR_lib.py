@@ -14,7 +14,9 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from scipy.signal import find_peaks
 
-from MR_ACR_util import find_z_length,find_xy_diameter,retrieve_ellipse_parameters,check_resolution_peaks1,check_resolution_peaks2,find_fwhm
+from MR_ACR_util import (find_z_length,find_xy_diameter,retrieve_ellipse_parameters,
+                         check_resolution_peaks1,check_resolution_peaks2,find_fwhm,
+                         detect_edges,mask_to_coordinates)
 
 ### Helper functions
 def getValue(ds, label):
@@ -374,7 +376,7 @@ def slice_thickness(data, results, action):
     results.addObject("T1 FWHM's", t1_fwhm_fig)
     results.addObject("T2 ROI's", t2_rois_fig)
     results.addObject("T2 FWHM's", t2_fwhm_fig)
-    
+        
 def slice_pos_t1(data,results,action):
     params = action["params"]
     filters = action["filters"]
@@ -393,14 +395,71 @@ def slice_pos_t1(data,results,action):
     # offsets for the Slice Position insert
     # location of the Slice Position insert is defined wrt center of the phantom:
     x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    x_center_px = int(x_center_px)
+    y_center_px = int(y_center_px)
     
-    # get the edges
+    slice_offsets = [[-83,10],[-83,16]]
+    x_range = 10
+    y_range = 3
+    
     edges_bot = detect_edges(image_data_bot)
+    edges_bot_wedge1 = edges_bot[slice_offsets[0][0]+x_center_px:slice_offsets[0][0]+x_center_px+x_range,
+                                 slice_offsets[0][1]+y_center_px:slice_offsets[0][1]+y_center_px+y_range]
+    edges_bot_wedge2 = edges_bot[slice_offsets[1][0]+x_center_px:slice_offsets[1][0]+x_center_px+x_range,
+                                 slice_offsets[1][1]+y_center_px:slice_offsets[1][1]+y_center_px+y_range]
+    avg_ind_bot_edge1 = np.mean(np.argwhere(edges_bot_wedge1)[:,0])
+    avg_ind_bot_edge2 = np.mean(np.argwhere(edges_bot_wedge2)[:,0])
+    slice_pos_error_bot = avg_ind_bot_edge2 - avg_ind_bot_edge1
+    
     edges_top = detect_edges(image_data_top)
-    edges_bot_xy = mask_to_coordinates(edges_bot)
-    edges_top_xy = mask_to_coordinates(edges_top)
-    # compare edge locations between 2 different locs
+    edges_top_wedge1 = edges_top[slice_offsets[0][0]+x_center_px:slice_offsets[0][0]+x_center_px+x_range,
+                                 slice_offsets[0][1]+y_center_px:slice_offsets[0][1]+y_center_px+y_range]
+    edges_top_wedge2 = edges_top[slice_offsets[1][0]+x_center_px:slice_offsets[1][0]+x_center_px+x_range,
+                                 slice_offsets[1][1]+y_center_px:slice_offsets[1][1]+y_center_px+y_range]
+    avg_ind_top_edge1 = np.mean(np.argwhere(edges_top_wedge1)[:,0])
+    avg_ind_top_edge2 = np.mean(np.argwhere(edges_top_wedge2)[:,0])
+    slice_pos_error_top = avg_ind_top_edge2 - avg_ind_top_edge1
     
-    # make a figure
+    # Show the resolution insert:
+    slice_pos_coordoffsets = np.array([-100,-21]) # wrt center of phantom
+    slice_pos_size = np.array([50,40])
+    image_slice_bot = image_data_bot[slice_pos_coordoffsets[0]+int(y_center_px):slice_pos_coordoffsets[0]+int(y_center_px)+slice_pos_size[0],
+                                     slice_pos_coordoffsets[1]+int(x_center_px):slice_pos_coordoffsets[1]+int(x_center_px)+slice_pos_size[1] ]
+    saveasbot = "Slice_position_bottom_T1.png"
+    plt.figure(99)
+    plt.imshow(image_slice_bot,cmap='gray')
+    y1 = slice_offsets[0][0]+x_center_px+avg_ind_bot_edge1 - (slice_pos_coordoffsets[0]+y_center_px)
+    y2 = slice_offsets[1][0]+x_center_px+avg_ind_bot_edge2 - (slice_pos_coordoffsets[0]+y_center_px)
+    if int(np.sign(slice_pos_error_bot)) == 1:
+        plt.axhline(y=y1,xmin=0.25,xmax=0.5,color='r')
+        plt.axhline(y=y2,xmin=0.5,xmax=0.75,color='r')
+    else:
+        plt.axhline(y=y2,xmin=0.25,xmax=0.5,color='r')
+        plt.axhline(y=y1,xmin=0.5,xmax=0.75,color='r')
+    plt.title("Slice_position_bottom_T1")
+    plt.axis("off")
+    plt.savefig(saveasbot, dpi=300)
     
-    # write results
+    image_slice_top = image_data_top[slice_pos_coordoffsets[0]+int(y_center_px):slice_pos_coordoffsets[0]+int(y_center_px)+slice_pos_size[0],
+                                     slice_pos_coordoffsets[1]+int(x_center_px):slice_pos_coordoffsets[1]+int(x_center_px)+slice_pos_size[1] ]
+    saveastop = "Slice_position_top_T1.png"
+    plt.figure(98)
+    plt.imshow(image_slice_top,cmap='gray')
+    y1 = slice_offsets[0][0]+x_center_px+avg_ind_bot_edge1 - (slice_pos_coordoffsets[0]+y_center_px)
+    y2 = slice_offsets[1][0]+x_center_px+avg_ind_bot_edge2 - (slice_pos_coordoffsets[0]+y_center_px)
+    if int(np.sign(slice_pos_error_top)) == 1:
+        plt.axhline(y=y1,xmin=0.25,xmax=0.5,color='r')
+        plt.axhline(y=y2,xmin=0.5,xmax=0.75,color='r')
+    else:
+        plt.axhline(y=y2,xmin=0.25,xmax=0.5,color='r')
+        plt.axhline(y=y1,xmin=0.5,xmax=0.75,color='r')
+    plt.title("Slice_position_top_T1")
+    plt.axis("off")
+    plt.savefig(saveastop, dpi=300)
+    
+    # Collect results
+    results.addFloat("Slice Position Error T1 slice1", slice_pos_error_bot)
+    results.addFloat("Slice Position Error T1 slice11", slice_pos_error_top)
+    results.addObject("Slice Position Error T1 slice1", saveasbot)
+    results.addObject("Slice Position Error T1 slice11", saveastop)
+
