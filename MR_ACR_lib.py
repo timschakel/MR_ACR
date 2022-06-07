@@ -16,7 +16,8 @@ from scipy.signal import find_peaks
 from MR_ACR_util import (find_z_length,find_xy_diameter,retrieve_ellipse_parameters,
                          check_resolution_peaks1,check_resolution_peaks2,find_fwhm,
                          detect_edges,mask_to_coordinates,find_min_and_max_intensity_region,
-                         get_mean_circle_ROI,get_mean_rect_ROI)
+                         get_mean_circle_ROI,get_mean_rect_ROI, find_centre_lowcontrast,
+                         find_circles)
 
 ### Helper functions
 def getValue(ds, label):
@@ -677,3 +678,40 @@ def slice_pos_t2(data,results,action):
     results.addObject("Slice Position Error T2 slice1", saveasbot)
     results.addObject("Slice Position Error T2 slice11", saveastop)
     
+    
+def low_contrast_object_detectability(data, results, action):
+    params = action["params"]
+    filters = action["filters"]
+    fig_filename = "low_contrast_object_detectability.png"
+    """
+    7. Low Contrast Object Detectability
+    """
+    #load T1
+    t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
+    t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
+    x_res = float(dcmInfile.info.PixelSpacing[0])
+    t1_image_data = pixeldataIn[int(params['firstslice'])-1:int(params['lastslice']),:,:] # take slice-1 (0-index)
+    
+    
+    #use slice 6 because slice 1 has too much sturctues in it
+    image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
+    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    x_center_px = int(x_center_px)
+    y_center_px = int(y_center_px)
+    
+    #load T2
+    t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
+    type_filter = {item:filters.get(item)for item in ["ImageType"]}
+    echo_filter = {item:filters.get(item)for item in ["EchoNumbers"]}
+    data_series = applyFilters(data.series_filelist, t2_series_filter)
+    data_series_type = applyFilters(data_series, type_filter)
+    data_series_type_echo = applyFilters(data_series_type, echo_filter)
+    
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
+    t2_image_data = pixeldataIn[int(params['firstslice'])-1:int(params['lastslice']),:,:] # take slice-1 (0-index)
+    
+    for i in range(4):
+        image_data = np.transpose(t2_image_data[i,:,:]) # take slice-1 (0-index)
+        lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
+        find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']))

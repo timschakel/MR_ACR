@@ -4,12 +4,12 @@
       "filters": {},
       "params": {
         "datetime_level": "Study",
-        "datetime_series_description": "t T1 bw634_clear"
+        "datetime_series_description": "t T1 bw436"
       }
     },
     "geometry_z": {
       "filters": {
-      	"SeriesDescription": "Survey_hBW_nsa2",
+      	"SeriesDescription": "Survey",
       	"0x2001,100b": "SAGITTAL"
       	},
       "params": {
@@ -19,7 +19,7 @@
     },
     "geometry_xy": {
       "filters": {
-      	"SeriesDescription": "t T1 bw634_clear"
+      	"SeriesDescription": "t T1 bw436"
       	},
       "params": {
       	"slicenumber": "6"
@@ -27,7 +27,7 @@
     },
     "resolution_t1": {
       "filters": {
-      	"SeriesDescription": "t T1 bw634_clear"
+      	"SeriesDescription": "t T1 bw436"
       	},
       "params": {
       	"slicenumber": "1",
@@ -36,7 +36,7 @@
     },
     "resolution_t2": {
       "filters": {
-      	"SeriesDescription": "t T2 bw634_clear",
+      	"SeriesDescription": "t T2 bw436",
       	"ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
       	"EchoNumbers": "2"
       	},
@@ -47,8 +47,8 @@
     },
     "slice_thickness": {
     	"filters": {
-    	    "t1_series_description": "t T1 bw634_clear",
-            "t2_series_description": "t T2 bw634_clear",
+    	    "t1_series_description": "t T1 bw436",
+            "t2_series_description": "t T2 bw436",
             "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
 	    "EchoNumbers": "2"
     	},
@@ -58,8 +58,8 @@
     },
     "image_intensity_uniformity": {
         "filters": {
-    	    "t1_series_description": "t T1 bw634_clear",
-            "t2_series_description": "t T2 bw634_clear",
+    	    "t1_series_description": "t T1 bw436",
+            "t2_series_description": "t T2 bw436",
             "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
 	    "EchoNumbers": "2"
     	},
@@ -69,7 +69,7 @@
     },
      "percent_signal_ghosting": {
         "filters": {
-    	    "SeriesDescription": "t T1 bw634_clear"
+    	    "SeriesDescription": "t T1 bw436"
     	},
     	"params": {
     	 "slicenumber": "7"
@@ -77,7 +77,7 @@
     },
     "slice_pos_t1": {
       "filters": {
-      	"SeriesDescription": "t T1 bw634_clear"
+      	"SeriesDescription": "t T1 bw436"
       	},
       "params": {
       	"slicenumberbot": "1",
@@ -86,7 +86,7 @@
     },
     "slice_pos_t2": {
       "filters": {
-      	"SeriesDescription": "t T2 bw634_clear",
+      	"SeriesDescription": "t T2 bw436",
       	"ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
       	"EchoNumbers": "2"
       	},
@@ -95,10 +95,10 @@
       	"slicenumbertop": "11"
       }
     },
-    "low_contrast_object_detectability": {
+     "low_contrast_object_detectability": {
     	"filters": {
-    	    "t1_series_description": "t T1 bw634_clear",
-            "t2_series_description": "t T2 bw634_clear",
+    	    "t1_series_description": "t T1 bw436",
+            "t2_series_description": "t T2 bw436",
             "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
 	    "EchoNumbers": "2"
     	},
@@ -110,10 +110,10 @@
     	}
     }
   },
-  "cfgformat": "20220530",
+  "cfgformat": "20220607",
   "comments": {
     "author": "Tim Schakel, UMCU",
-    "description": "WADQC 2 module for use with ACR MR phantom acquisitions",
+    "description": "WADQC 2 module for use with ACR MR phantom acquisitions from MR21",
     "version": "0.1",
     "params": {
       "datetime_level": "REQUIRED. For allowed options see wad_qc.modulelibs.wadwrapper_lib.dcm_datetime.get_datetime.",

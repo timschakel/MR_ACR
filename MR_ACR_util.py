@@ -14,10 +14,13 @@ from pathlib import Path
 from typing import List, Tuple, Any, Union
 from skimage import feature
 from skimage.transform import radon
+from skimage.feature import canny
+from skimage.transform import hough_circle, hough_circle_peaks
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse,Circle
 from scipy.signal import find_peaks
+from scipy.interpolate import interp2d
 
 def detect_edges(
     image, sigma=0.3, low_threshold=750, high_threshold=None
@@ -669,3 +672,54 @@ def get_mean_rect_ROI(image, rect):
     mean_val = np.mean(image[rect.get_y():rect.get_y()+rect.get_height(),rect.get_x():rect.get_x()+rect.get_width()])
     return mean_val
         
+
+def find_centre_lowcontrast(image_data,sigma,low_threshold):
+    edges = feature.canny(image_data,
+        sigma=sigma,low_threshold=low_threshold,high_threshold=None)
+
+    searchradius = np.arange(42,47)
+    hough_res = hough_circle(edges, searchradius)
+    accums, cx, cy, radius = hough_circle_peaks(hough_res, searchradius, total_num_peaks=1)
+
+    # fig, ax = plt.subplots(1)
+    # ax.imshow(image_data, cmap=plt.get_cmap("Greys_r"))
+    # make_circle = Circle((cx, cy), radius = radius, fill=False, ec='r')
+    # ax.add_patch(make_circle)
+    
+    return cx, cy, radius
+
+def find_circles(image_data, rad, sigma, low_threshold):
+    x = np.arange(0,image_data.shape[1])
+    y = np.arange(0,image_data.shape[0])
+    
+    f = interp2d(y,x,image_data,kind='cubic')
+    xnew = np.arange(0,image_data.shape[1], 0.25)
+    ynew = np.arange(0,image_data.shape[0], 0.25)
+    image_data_hr = f(ynew, xnew)
+    
+    mask = np.zeros(image_data_hr.shape,dtype=bool)
+    circle = Circle((rad*4, rad*4), radius = rad*4-4)
+    for y in range(mask.shape[0]):
+        for x in range(mask.shape[1]):
+            if point_in_circle((y, x), circle):
+                mask[y,x] = True
+    
+    
+    edges = feature.canny(image_data_hr,
+        sigma=4,low_threshold=10,high_threshold=15,mask = mask)
+
+    searchradius = np.arange(3,15)
+    hough_res = hough_circle(edges, searchradius)
+    accums, cx, cy, radius = hough_circle_peaks(hough_res, searchradius, total_num_peaks=30,min_xdistance=15,min_ydistance=15)
+    
+    fig, ax = plt.subplots(1,2)
+    ax[0].imshow(image_data_hr, cmap=plt.get_cmap("Greys_r"),vmin = np.max(image_data)/1.2, vmax=np.max(image_data))
+    for i in range(len(cx)):    
+        make_circle = Circle((cx[i], cy[i]), radius = radius[i], fill=False, ec='r')
+        ax[0].add_patch(make_circle)
+    ax[1].imshow(edges)
+    plt.show()
+    
+    return cx, cy
+
+
