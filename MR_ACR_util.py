@@ -697,8 +697,10 @@ def find_circles(image_data, rad, sigma, low_threshold):
     ynew = np.arange(0,image_data.shape[0], 0.25)
     image_data_hr = f(ynew, xnew)
     
+    rad*=4
+    
     mask = np.zeros(image_data_hr.shape,dtype=bool)
-    circle = Circle((rad*4, rad*4), radius = rad*4-4)
+    circle = Circle((rad, rad), radius = rad-4)
     for y in range(mask.shape[0]):
         for x in range(mask.shape[1]):
             if point_in_circle((y, x), circle):
@@ -706,20 +708,72 @@ def find_circles(image_data, rad, sigma, low_threshold):
     
     
     edges = feature.canny(image_data_hr,
-        sigma=4,low_threshold=10,high_threshold=15,mask = mask)
+        sigma=4,low_threshold=8,high_threshold=15,mask = mask)
 
-    searchradius = np.arange(3,15)
-    hough_res = hough_circle(edges, searchradius)
-    accums, cx, cy, radius = hough_circle_peaks(hough_res, searchradius, total_num_peaks=30,min_xdistance=15,min_ydistance=15)
     
-    fig, ax = plt.subplots(1,2)
-    ax[0].imshow(image_data_hr, cmap=plt.get_cmap("Greys_r"),vmin = np.max(image_data)/1.2, vmax=np.max(image_data))
-    for i in range(len(cx)):    
-        make_circle = Circle((cx[i], cy[i]), radius = radius[i], fill=False, ec='r')
-        ax[0].add_patch(make_circle)
-    ax[1].imshow(edges)
+    
+    radius1 = 13*4
+    radius2 = 26*4
+    radius3 = 38*4
+    
+    edges_float = np.zeros(edges.shape,dtype=float)
+    for i in range(edges.shape[0]):
+        for j in range(edges.shape[1]):
+            if edges[i,j]:
+                edges_float[i,j] = 1.0
+    
+    fedges = interp2d(ynew*4,xnew*4,edges_float,kind='linear')
+    angles = np.linspace(-0.2*np.pi,1.8*np.pi,num=400)
+    circ1_coords = [rad+radius1*np.cos(angles),rad+radius1*np.sin(angles)]
+    circ2_coords = [rad+radius2*np.cos(angles),rad+radius2*np.sin(angles)]
+    circ3_coords = [rad+radius3*np.cos(angles),rad+radius3*np.sin(angles)]
+    circ1_data = [fedges(circ1_coords[0][i], circ1_coords[1][i]) for i in range(circ1_coords[0].shape[0])]
+    circ2_data = [fedges(circ2_coords[0][i], circ2_coords[1][i]) for i in range(circ2_coords[0].shape[0])]
+    circ3_data = [fedges(circ3_coords[0][i], circ3_coords[1][i]) for i in range(circ3_coords[0].shape[0])]
+    
+    fig, axs = plt.subplots(2,3)
+    axs[0,0].imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
+    axs[0,0].scatter(rad, rad)
+    axs[0,0].scatter(circ1_coords[0],circ1_coords[1],s=1)
+    axs[0,0].scatter(circ2_coords[0],circ2_coords[1],s=1)
+    axs[0,0].scatter(circ3_coords[0],circ3_coords[1],s=1)
+    
+    axs[0,1].plot(circ1_data)
+    #axs[0,1].plot(circ1_data_filt)
+    #axs[0,1].plot(peaks1,circ1_data_filt[peaks1],'x')
+    axs[0,1].set_title('Signal & peaks inner ring')
+    
+    axs[1,0].plot(circ2_data)
+    #axs[1,0].plot(circ2_data_filt)
+    #axs[1,0].plot(peaks2,circ2_data_filt[peaks2],'x')
+    axs[1,0].set_title('Signal & peaks middle ring')
+    
+    axs[1,1].plot(circ3_data)
+    #axs[1,1].plot(circ3_data_filt)
+    #axs[1,1].plot(peaks3,circ3_data_filt[peaks3],'x')
+    axs[1,1].set_title('Signal & peaks outer ring')
+     
+    axs[1,2].imshow(edges)
+    axs[0,2].imshow(edges_float)
     plt.show()
     
-    return cx, cy
+
+    
+
+    # searchradius = np.arange(3,15)
+    # hough_res = hough_circle(edges, searchradius)
+    # accums, cx, cy, radius = hough_circle_peaks(hough_res, searchradius, total_num_peaks=30,min_xdistance=20,min_ydistance=20,threshold=0.3*np.max(hough_res))
+    
+    # fig, ax = plt.subplots(1,2)
+    # ax[0].imshow(image_data_hr, cmap=plt.get_cmap("Greys_r"),vmin = np.max(image_data)/1.2, vmax=np.max(image_data))
+    # for i in range(len(cx)):    
+    #     make_circle = Circle((cx[i], cy[i]), radius = radius[i], fill=False, ec='r')
+    #     ax[0].add_patch(make_circle)
+    # ax[1].imshow(edges)
+    # plt.show()
+    
+    
+    breakpoint()
+    # return cx, cy
 
 

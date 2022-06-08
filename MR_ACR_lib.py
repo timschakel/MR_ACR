@@ -711,7 +711,7 @@ def low_contrast_object_detectability(data, results, action):
     dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
     t2_image_data = pixeldataIn[int(params['firstslice'])-1:int(params['lastslice']),:,:] # take slice-1 (0-index)
     
-    for i in range(4):
-        image_data = np.transpose(t2_image_data[i,:,:]) # take slice-1 (0-index)
-        lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
-        find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']))
+    #for i in range(4):
+    image_data = np.transpose(t1_image_data[3,:,:]) # take slice-1 (0-index)
+    lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
+    find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']))
