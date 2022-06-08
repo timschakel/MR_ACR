@@ -22,6 +22,16 @@ from matplotlib.patches import Ellipse,Circle
 from scipy.signal import find_peaks
 from scipy.interpolate import interp2d
 
+class bin_circle:
+    def __init__(self, left, right, mean_val):
+        self.left = left 
+        self.right = right
+        self.mean_val = mean_val
+    
+    def get_center(self):
+        return self.right - self.left
+    
+
 def detect_edges(
     image, sigma=0.3, low_threshold=750, high_threshold=None
 ) -> np.ndarray:
@@ -713,7 +723,7 @@ def find_circles(image_data, rad, sigma, low_threshold):
     
     
     radius1 = 13*4
-    radius2 = 26*4
+    radius2 = 26*4-2
     radius3 = 38*4
     
     edges_float = np.zeros(edges.shape,dtype=float)
@@ -723,13 +733,44 @@ def find_circles(image_data, rad, sigma, low_threshold):
                 edges_float[i,j] = 1.0
     
     fedges = interp2d(ynew*4,xnew*4,edges_float,kind='linear')
-    angles = np.linspace(-0.2*np.pi,1.8*np.pi,num=400)
+    angles = np.linspace(0.0,2*np.pi,num=300)
     circ1_coords = [rad+radius1*np.cos(angles),rad+radius1*np.sin(angles)]
+    angles = np.linspace(0.0,2*np.pi,num=int(300*radius2/radius1))
     circ2_coords = [rad+radius2*np.cos(angles),rad+radius2*np.sin(angles)]
+    angles = np.linspace(0.0,2*np.pi,num=int(300*radius3/radius1))
     circ3_coords = [rad+radius3*np.cos(angles),rad+radius3*np.sin(angles)]
     circ1_data = [fedges(circ1_coords[0][i], circ1_coords[1][i]) for i in range(circ1_coords[0].shape[0])]
     circ2_data = [fedges(circ2_coords[0][i], circ2_coords[1][i]) for i in range(circ2_coords[0].shape[0])]
     circ3_data = [fedges(circ3_coords[0][i], circ3_coords[1][i]) for i in range(circ3_coords[0].shape[0])]
+    
+    #image data
+    fimage_hr = interp2d(ynew*4,xnew*4,image_data_hr,kind='cubic')
+    circ1_image_data = [fimage_hr(circ1_coords[0][i], circ1_coords[1][i]) for i in range(circ1_coords[0].shape[0])]
+    circ2_image_data = [fimage_hr(circ2_coords[0][i], circ2_coords[1][i]) for i in range(circ2_coords[0].shape[0])]
+    circ3_image_data = [fimage_hr(circ3_coords[0][i], circ3_coords[1][i]) for i in range(circ3_coords[0].shape[0])]
+    #normalize
+    circ1_image_data /= np.max(circ1_image_data)
+    circ2_image_data /= np.max(circ2_image_data)
+    circ3_image_data /= np.max(circ3_image_data)
+    
+    #determine which are circles
+    circ1_edge_idxs = [i for i,x in enumerate(circ1_data) if x > 0.0]
+    circ2_edge_idxs = [i for i,x in enumerate(circ2_data) if x > 0.0]
+    circ3_edge_idxs = [i for i,x in enumerate(circ3_data) if x > 0.0]
+    
+    #divide circle into bins
+    circ1_bins = []    
+    for idx in range(1,len(circ1_edge_idxs)):
+        if (circ1_edge_idxs[idx]-circ1_edge_idxs[idx-1]) > 1:
+            m_val = np.mean(circ1_image_data[circ1_edge_idxs[idx-1]:circ1_edge_idxs[idx]])
+            circ1_bins.append(bin_circle(circ1_edge_idxs[idx-1], circ1_edge_idxs[idx], m_val))
+    if ((circ1_edge_idxs[0]+len(circ1_data)) - circ1_edge_idxs[-1]) > 1:
+        m_val = (np.mean(circ1_image_data[circ1_edge_idxs[-1]:-1])+np.mean(circ1_image_data[0:circ1_edge_idxs[0]]))/2
+        circ1_bins.append(bin_circle(circ1_edge_idxs[-1], circ1_edge_idxs[0], m_val))
+    
+    
+    
+    
     
     fig, axs = plt.subplots(2,3)
     axs[0,0].imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
@@ -738,19 +779,21 @@ def find_circles(image_data, rad, sigma, low_threshold):
     axs[0,0].scatter(circ2_coords[0],circ2_coords[1],s=1)
     axs[0,0].scatter(circ3_coords[0],circ3_coords[1],s=1)
     
-    axs[0,1].plot(circ1_data)
-    #axs[0,1].plot(circ1_data_filt)
-    #axs[0,1].plot(peaks1,circ1_data_filt[peaks1],'x')
+    
+    axs[0,1].plot(circ1_data,color='tab:orange')
+    axs[0,1].plot(circ1_image_data)
+    axs[0,1].axhline(y=circ1_mean_data)
     axs[0,1].set_title('Signal & peaks inner ring')
     
-    axs[1,0].plot(circ2_data)
-    #axs[1,0].plot(circ2_data_filt)
-    #axs[1,0].plot(peaks2,circ2_data_filt[peaks2],'x')
+    
+    axs[1,0].plot(circ2_data,color='g')
+    axs[1,0].plot(circ2_image_data)
+    axs[1,0].axhline(y=circ2_mean_data)
     axs[1,0].set_title('Signal & peaks middle ring')
     
-    axs[1,1].plot(circ3_data)
-    #axs[1,1].plot(circ3_data_filt)
-    #axs[1,1].plot(peaks3,circ3_data_filt[peaks3],'x')
+    axs[1,1].plot(circ3_data,color='r')
+    axs[1,1].plot(circ3_image_data)
+    axs[1,1].axhline(y=circ3_mean_data)
     axs[1,1].set_title('Signal & peaks outer ring')
      
     axs[1,2].imshow(edges)
