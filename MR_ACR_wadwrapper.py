@@ -78,7 +78,7 @@ if __name__ == "__main__":
         #     MR_ACR_lib.image_intensity_uniformity(data, results, action)
         # elif name == 'percent_signal_ghosting':
         #     MR_ACR_lib.percent_signal_ghosting(data, results, action)
-        elif name == 'lowcontrast_object_t1':
-            MR_ACR_lib.lowcontrast_object_t1(data, results, action)
+        elif name == 'lowcontrast_object':
+            MR_ACR_lib.lowcontrast_object(data, results, action)
         
     results.write()

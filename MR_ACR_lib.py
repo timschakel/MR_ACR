@@ -19,7 +19,8 @@ from scipy import interpolate
 from MR_ACR_util import (find_z_length,find_xy_diameter,retrieve_ellipse_parameters,
                          check_resolution_peaks1,check_resolution_peaks2,find_fwhm,
                          detect_edges,mask_to_coordinates,find_min_and_max_intensity_region,
-                         get_mean_circle_ROI,get_mean_rect_ROI,find_centre_lowcontrast)
+                         get_mean_circle_ROI,get_mean_rect_ROI,find_centre_lowcontrast,
+                         get_spoke_score)
 
 ### Helper functions
 def getValue(ds, label):
@@ -680,126 +681,36 @@ def slice_pos_t2(data,results,action):
     results.addObject("Slice Position Error T2 slice1", saveasbot)
     results.addObject("Slice Position Error T2 slice11", saveastop)
     
-def lowcontrast_object_t1(data,results,action):
+def lowcontrast_object(data,results,action):
     params = action["params"]
     filters = action["filters"]
     """
     7. Low-contrast object detectability
     Use the T1 scan
     """
-    series_filter = {item:filters.get(item)for item in ["SeriesDescription"]}
-    data_series = applyFilters(data.series_filelist, series_filter)
+    t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
+    data_series = applyFilters(data.series_filelist, t1_series_filter)
     dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series[0],headers_only=False)
     
-    # 1 slice for now, later loop over all 4
-    angle_offset = 8*np.pi/180 #~ 8 degree rotation per slice
-    for slice in np.arange(1,5):
-        image_data = np.transpose(pixeldataIn[11-slice,:,:]) # take slice-1 (0-index)
-        lco_cx, lco_cy, lco_radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
-        radius1 = 13
-        radius2 = 26
-        radius3 = 38   
-        
-        angles = np.linspace((-0.5*np.pi-(slice-1)*angle_offset),(1.5*np.pi-(slice-1)*angle_offset),num=100)
-        #circ_coords = [lco_cx+lco_radius*np.cos(angles),lco_cy+lco_radius*np.sin(angles)]
-        circ1_coords = [lco_cx+radius1*np.cos(angles),lco_cy+radius1*np.sin(angles)]
-        circ2_coords = [lco_cx+radius2*np.cos(angles),lco_cy+radius2*np.sin(angles)]
-        circ3_coords = [lco_cx+radius3*np.cos(angles),lco_cy+radius3*np.sin(angles)]
-        
-        x = np.arange(256)
-        y = np.arange(256)
-        f = interpolate.RectBivariateSpline(x, y, image_data)
-        
-        circ1_data = f.ev(np.array(circ1_coords[1]),np.array(circ1_coords[2]))
-        circ2_data = f.ev(np.array(circ2_coords[0]),np.array(circ2_coords[1]))
-        circ3_data = f.ev(np.array(circ3_coords[0]),np.array(circ3_coords[1]))
-        
-        circ1_data = image_data[np.array(circ1_coords[1]).astype(int),np.array(circ1_coords[0]).astype(int)] # interpolate ipv int?
-        circ2_data = image_data[np.array(circ2_coords[1]).astype(int),np.array(circ2_coords[0]).astype(int)] # interpolate ipv int?
-        circ3_data = image_data[np.array(circ3_coords[1]).astype(int),np.array(circ3_coords[0]).astype(int)] # interpolate ipv int?
-        
-        circ1_data_filt = gaussian_filter1d(circ1_data,1)
-        circ2_data_filt = gaussian_filter1d(circ2_data,1)
-        circ3_data_filt = gaussian_filter1d(circ3_data,1)
-
-        breakpoint()
-        
-        peaks1,_ = find_peaks(circ1_data_filt,distance=8)
-        peaks2,_ = find_peaks(circ2_data_filt,distance=8)
-        peaks3,_ = find_peaks(circ3_data_filt,distance=8)
-        
-        fig, axs = plt.subplots(2,2)
-        fig.suptitle('Results slice '+str(11-slice+1))
-        axs[0,0].imshow(image_data,vmin=0.5*np.max(image_data),vmax=0.9*np.max(image_data),cmap='gray')
-        axs[0,0].scatter(lco_cx,lco_cy)
-        axs[0,0].scatter(circ1_coords[0],circ1_coords[1],s=1)
-        axs[0,0].scatter(circ2_coords[0],circ2_coords[1],s=1)
-        axs[0,0].scatter(circ3_coords[0],circ3_coords[1],s=1)
-        #axs[0,0].axis([75,186,80,190])
-        
-        axs[0,1].plot(circ1_data)
-        axs[0,1].plot(circ1_data_filt)
-        axs[0,1].plot(peaks1,circ1_data_filt[peaks1],'x')
-        axs[0,1].grid(True)
-        axs[0,1].set_title('Signal & peaks inner ring')
-        
-        axs[1,0].plot(circ2_data)
-        axs[1,0].plot(circ2_data_filt)
-        axs[1,0].plot(peaks2,circ2_data_filt[peaks2],'x')
-        axs[1,0].grid(True)
-        axs[1,0].set_title('Signal & peaks middle ring')
-        
-        axs[1,1].plot(circ3_data)
-        axs[1,1].plot(circ3_data_filt)
-        axs[1,1].plot(peaks3,circ3_data_filt[peaks3],'x')
-        axs[1,1].grid(True)
-        axs[1,1].set_title('Signal & peaks outer ring')
-   
+    figure_t1 = 'Low contrast object T1.png'
+    spoke_score_t1 = get_spoke_score(pixeldataIn, params, figure_t1)
     
- 
+    """
+    Use the T2 scan
+    """
+    t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
+    type_filter = {item:filters.get(item)for item in ["ImageType"]}
+    echo_filter = {item:filters.get(item)for item in ["EchoNumbers"]}
+    data_series = applyFilters(data.series_filelist, t2_series_filter)
+    data_series_type = applyFilters(data_series, type_filter)
+    data_series_type_echo = applyFilters(data_series_type, echo_filter)
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
     
-    #TO DO: 
-    # * offsets for the angles to generate the circ data 
-    #   the 4 slices with the insert have an increasing angulation
-    #   make sure the circular profile always starts right before the largest sphere and preceeds clockwise
-    # * compare peak locations between inner/middle/outer circle
-    #   when not at similar indices --> fail, spheres not detected for that spoke
+    figure_t2 = 'Low contrast object T2.png'
+    spoke_score_t2 = get_spoke_score(pixeldataIn, params, figure_t2)
     
-   
-    
-   
-    
-   
-    
-   
-    
-   # plot stuff
-   # fig, ax = plt.subplots()
-   # make_circle = Circle((lco_cx, lco_cy), radius = lco_radius, fill=False, ec='r')
-   # make_circle1 = Circle((lco_cx, lco_cy), radius = radius1, fill=False, ec='r')
-   # make_circle2 = Circle((lco_cx, lco_cy), radius = radius2, fill=False, ec='g')
-   # make_circle3 = Circle((lco_cx, lco_cy), radius = radius3, fill=False, ec='b')
-   # make_line = lines.Line2D([lco_cx,lco_cx],[lco_cy,lco_cy-lco_radius])
-   # ax.add_patch(make_circle)
-   # ax.add_patch(make_circle1)
-   # ax.add_patch(make_circle2)
-   # ax.add_patch(make_circle3)
-   # #ax.add_line(make_line)
-   # ax.imshow(image_data,vmin=0.4*np.max(image_data),vmax=0.9*np.max(image_data))
-   # ax.scatter(lco_cx,lco_cy)
-   # plt.show()
-    
-   
-    
-   
-    
-   #  from scipy.fft import fft, fftfreq, fftshift
-   #  N = 100
-   #  T = 1
-   #  yf = fft(circ1_data_filt)
-   #  xf = fftfreq(N,T)
-   #  xf = fftshift(xf)
-   #  yplot = fftshift(yf)
-   #  fig, ax = plt.subplots()
-   #  plt.plot(xf,1.0/N * np.abs(yplot))
-
+    breakpoint()
+    results.addFloat("Low contrast object T1 spoke score", spoke_score_t1)
+    results.addFloat("Low contrast object T2 spoke score", spoke_score_t2)
+    results.addObject("Low contrast object T1", figure_t1)
+    results.addObject("Low contrast object T2", figure_t2)

@@ -95,9 +95,12 @@
       	"slicenumbertop": "11"
       }
     },
-    "lowcontrast_object_t1": {
+    "lowcontrast_object": {
       "filters": {
-      	"SeriesDescription": "t T1 bw436"
+      	"t1_series_description": "t T1 bw436",
+        "t2_series_description": "t T2 bw436",
+        "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
+	    "EchoNumbers": "2"
       	},
       "params": {
       	"lco_slice1": "8",

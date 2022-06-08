@@ -19,6 +19,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse,Circle
 from scipy.signal import find_peaks
+from scipy.ndimage import gaussian_filter1d
+from scipy import interpolate
 
 def detect_edges(
     image, sigma=0.3, low_threshold=750, high_threshold=None
@@ -679,3 +681,93 @@ def find_centre_lowcontrast(image_data,sigma,low_threshold):
     accums, cx, cy, radius = hough_circle_peaks(hough_res, searchradius, total_num_peaks=1)
     
     return cx[0], cy[0], radius[0]
+
+def get_spoke_score(pixeldataIn,params,fig_filename):
+    """
+    Determine the detectability of the spokes with spheres.
+    1. Create circels at different radii
+    2. Get the signal profiles along the circels and filter
+    3. Find peaks along the filtered profiles
+    4. Check the alignment of the peaks along the different profiles
+    5. Report total number of resolved spokes (over 4 slices, max = 40)
+    """
+    angle_offset = 8*np.pi/180 #~ 8 degree rotation per slice
+    spoke_score = 0
+    for slice in np.arange(1,5):
+        image_data = np.transpose(pixeldataIn[11-slice,:,:]) # take slice-1 (0-index)
+        lco_cx, lco_cy, lco_radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
+        radius1 = 13
+        radius2 = 26
+        radius3 = 38   
+        
+        angles = np.linspace((-0.5*np.pi-(slice-1)*angle_offset),(1.5*np.pi-(slice-1)*angle_offset),num=100)
+        circ1_coords = [lco_cx+radius1*np.cos(angles),lco_cy+radius1*np.sin(angles)]
+        circ2_coords = [lco_cx+radius2*np.cos(angles),lco_cy+radius2*np.sin(angles)]
+        circ3_coords = [lco_cx+radius3*np.cos(angles),lco_cy+radius3*np.sin(angles)]
+        
+        x = np.arange(0,image_data.shape[1])
+        y = np.arange(0,image_data.shape[0])
+        f = interpolate.RectBivariateSpline(x, y, image_data)
+        circ1_data = [f(circ1_coords[1][i], circ1_coords[0][i]) for i in range(circ1_coords[0].shape[0])]
+        circ2_data = [f(circ2_coords[1][i], circ2_coords[0][i]) for i in range(circ2_coords[0].shape[0])]
+        circ3_data = [f(circ3_coords[1][i], circ3_coords[0][i]) for i in range(circ3_coords[0].shape[0])]       
+        circ1_data = np.array(circ1_data).flatten()
+        circ2_data = np.array(circ2_data).flatten()
+        circ3_data = np.array(circ3_data).flatten()
+        
+        circ1_data_filt = gaussian_filter1d(circ1_data,0.5)
+        circ2_data_filt = gaussian_filter1d(circ2_data,0.5)
+        circ3_data_filt = gaussian_filter1d(circ3_data,0.5)
+        
+        peaks1,_ = find_peaks(circ1_data_filt,distance=8)
+        peaks2,_ = find_peaks(circ2_data_filt,distance=8)
+        peaks3,_ = find_peaks(circ3_data_filt,distance=8)
+        
+        #Plotting
+        fig, axs = plt.subplots(2,2)
+        fig.suptitle('Results slice '+str(11-slice+1))
+        axs[0,0].imshow(image_data,vmin=0.5*np.max(image_data),vmax=0.9*np.max(image_data),cmap='gray')
+        axs[0,0].scatter(lco_cx,lco_cy)
+        axs[0,0].scatter(circ1_coords[0],circ1_coords[1],s=1)
+        axs[0,0].scatter(circ2_coords[0],circ2_coords[1],s=1)
+        axs[0,0].scatter(circ3_coords[0],circ3_coords[1],s=1)
+        
+        axs[0,1].plot(circ1_data)
+        axs[0,1].plot(circ1_data_filt)
+        axs[0,1].plot(peaks1,circ1_data_filt[peaks1],'x')
+        axs[0,1].grid(True)
+        axs[0,1].set_title('Signal & peaks inner ring')
+        
+        axs[1,0].plot(circ2_data)
+        axs[1,0].plot(circ2_data_filt)
+        axs[1,0].plot(peaks2,circ2_data_filt[peaks2],'x')
+        axs[1,0].grid(True)
+        axs[1,0].set_title('Signal & peaks middle ring')
+        
+        axs[1,1].plot(circ3_data)
+        axs[1,1].plot(circ3_data_filt)
+        axs[1,1].plot(peaks3,circ3_data_filt[peaks3],'x')
+        axs[1,1].grid(True)
+        axs[1,1].set_title('Signal & peaks outer ring')
+        plt.savefig(fig_filename, dpi=300)
+   
+        # Peak comparison
+        peak_failed = False
+        psize = [len(peaks1), len(peaks2), len(peaks3)]
+        
+        for peak in np.arange(0,min(psize)):
+            peaks2_diff = np.abs(peaks2[peak] - peaks1[peak])
+            peaks3_diff = np.abs(peaks3[peak] - peaks1[peak])
+            if peaks2_diff > 3 or peaks3_diff > 3:
+                #failed: difference too large
+                peak_failed = True
+                #print('Found too much difference between peaks')
+                print('Slice '+str(11-slice+1)+': Resolved '+str(peak)+' spokes. Spoke score: '+str(spoke_score))
+                break
+            else:
+                spoke_score+=1
+ 
+        if peak == (min(psize)-1) and not peak_failed:
+            print('Slice '+str(11-slice+1)+': Resolved '+str(min(psize))+' spokes. Spoke score: '+str(spoke_score))
+            
+    return spoke_score
