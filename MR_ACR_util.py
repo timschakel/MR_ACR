@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import List, Tuple, Any, Union
 from skimage import feature
 from skimage.transform import radon
+from skimage.transform import hough_circle, hough_circle_peaks
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse,Circle
@@ -668,4 +669,13 @@ def get_mean_rect_ROI(image, rect):
     
     mean_val = np.mean(image[rect.get_y():rect.get_y()+rect.get_height(),rect.get_x():rect.get_x()+rect.get_width()])
     return mean_val
-        
+
+def find_centre_lowcontrast(image_data,sigma,low_threshold):
+    edges = feature.canny(image_data,
+        sigma=sigma,low_threshold=low_threshold,high_threshold=None)
+    
+    searchradius = np.arange(42,47)
+    hough_res = hough_circle(edges, searchradius)
+    accums, cx, cy, radius = hough_circle_peaks(hough_res, searchradius, total_num_peaks=1)
+    
+    return cx[0], cy[0], radius[0]
