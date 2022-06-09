@@ -769,7 +769,7 @@ def find_circles(image_data, rad, sigma, low_threshold):
         circ1_bins.append(bin_circle(circ1_edge_idxs[-1], circ1_edge_idxs[0], m_val))
     
     
-    
+    breakpoint()
     
     
     fig, axs = plt.subplots(2,3)
@@ -782,18 +782,18 @@ def find_circles(image_data, rad, sigma, low_threshold):
     
     axs[0,1].plot(circ1_data,color='tab:orange')
     axs[0,1].plot(circ1_image_data)
-    axs[0,1].axhline(y=circ1_mean_data)
+    #axs[0,1].axhline(y=circ1_mean_data)
     axs[0,1].set_title('Signal & peaks inner ring')
     
     
     axs[1,0].plot(circ2_data,color='g')
     axs[1,0].plot(circ2_image_data)
-    axs[1,0].axhline(y=circ2_mean_data)
+    #axs[1,0].axhline(y=circ2_mean_data)
     axs[1,0].set_title('Signal & peaks middle ring')
     
     axs[1,1].plot(circ3_data,color='r')
     axs[1,1].plot(circ3_image_data)
-    axs[1,1].axhline(y=circ3_mean_data)
+    #axs[1,1].axhline(y=circ3_mean_data)
     axs[1,1].set_title('Signal & peaks outer ring')
      
     axs[1,2].imshow(edges)
@@ -816,7 +816,7 @@ def find_circles(image_data, rad, sigma, low_threshold):
     # plt.show()
     
     
-    breakpoint()
+    
     # return cx, cy
 
 
