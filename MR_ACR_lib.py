@@ -682,7 +682,14 @@ def slice_pos_t2(data,results,action):
 def low_contrast_object_detectability(data, results, action):
     params = action["params"]
     filters = action["filters"]
-    fig_filename = "low_contrast_object_detectability.png"
+    fig_filenames = ["t1_s1_low_contrast_object_detectability.png",
+                     "t1_s2_low_contrast_object_detectability.png",
+                     "t1_s3_low_contrast_object_detectability.png",
+                     "t1_s4_low_contrast_object_detectability.png",
+                     "t2_s1_low_contrast_object_detectability.png",
+                     "t2_s2_low_contrast_object_detectability.png",
+                     "t2_s3_low_contrast_object_detectability.png",
+                     "t2_s4_low_contrast_object_detectability.png"]
     """
     7. Low Contrast Object Detectability
     """
@@ -711,7 +718,29 @@ def low_contrast_object_detectability(data, results, action):
     dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
     t2_image_data = pixeldataIn[int(params['firstslice'])-1:int(params['lastslice']),:,:] # take slice-1 (0-index)
     
-    #for i in range(4):
-    image_data = np.transpose(t1_image_data[3,:,:]) # take slice-1 (0-index)
-    lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
-    find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']))
+    t1_count_spokes = 0
+    for i in range(4):
+        image_data = np.transpose(t1_image_data[i,:,:]) # take slice-1 (0-index)
+        lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
+        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']))
+        t1_count_spokes += count_spokes 
+        fig_to_save.savefig(fig_filenames[i], dpi= 300)
+    
+    t2_count_spokes = 0
+    for i in range(4):
+        image_data = np.transpose(t2_image_data[i,:,:]) # take slice-1 (0-index)
+        lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
+        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']))
+        t2_count_spokes += count_spokes 
+        fig_to_save.savefig(fig_filenames[i+4], dpi= 300)
+        
+    results.addFloat("T1 number of counted spokes", t1_count_spokes)
+    results.addFloat("T2 number of counted spokes", t2_count_spokes)
+    results.addObject("T1 slice 1", fig_filenames[0])
+    results.addObject("T1 slice 2", fig_filenames[1])
+    results.addObject("T1 slice 3", fig_filenames[2])
+    results.addObject("T1 slice 4", fig_filenames[3])
+    results.addObject("T2 slice 1", fig_filenames[4])
+    results.addObject("T2 slice 2", fig_filenames[5])
+    results.addObject("T2 slice 3", fig_filenames[6])
+    results.addObject("T2 slice 4", fig_filenames[7])

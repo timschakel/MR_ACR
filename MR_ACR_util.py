@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse,Circle
 from scipy.signal import find_peaks
 from scipy.interpolate import interp2d
+import seaborn as sns
 
 class bin_circle:
     def __init__(self, left, right, mean_val):
@@ -29,8 +30,13 @@ class bin_circle:
         self.mean_val = mean_val
     
     def get_center(self):
-        return self.right - self.left
+        return (self.right + self.left)/2
     
+    def get_rad(self):
+        c = self.get_center()
+        r1 = c - self.left 
+        r2 = self.right - c
+        return np.min([r1,r2])
 
 def detect_edges(
     image, sigma=0.3, low_threshold=750, high_threshold=None
@@ -721,7 +727,6 @@ def find_circles(image_data, rad, sigma, low_threshold):
         sigma=4,low_threshold=8,high_threshold=15,mask = mask)
 
     
-    
     radius1 = 13*4
     radius2 = 26*4-2
     radius3 = 38*4
@@ -759,6 +764,7 @@ def find_circles(image_data, rad, sigma, low_threshold):
     circ3_edge_idxs = [i for i,x in enumerate(circ3_data) if x > 0.0]
     
     #divide circle into bins
+    #circ1 
     circ1_bins = []    
     for idx in range(1,len(circ1_edge_idxs)):
         if (circ1_edge_idxs[idx]-circ1_edge_idxs[idx-1]) > 1:
@@ -766,10 +772,91 @@ def find_circles(image_data, rad, sigma, low_threshold):
             circ1_bins.append(bin_circle(circ1_edge_idxs[idx-1], circ1_edge_idxs[idx], m_val))
     if ((circ1_edge_idxs[0]+len(circ1_data)) - circ1_edge_idxs[-1]) > 1:
         m_val = (np.mean(circ1_image_data[circ1_edge_idxs[-1]:-1])+np.mean(circ1_image_data[0:circ1_edge_idxs[0]]))/2
-        circ1_bins.append(bin_circle(circ1_edge_idxs[-1], circ1_edge_idxs[0], m_val))
+        circ1_bins.append(bin_circle(circ1_edge_idxs[-1], circ1_edge_idxs[0]+len(circ1_data), m_val))
+    #circ2 
+    circ2_bins = []    
+    for idx in range(1,len(circ2_edge_idxs)):
+        if (circ2_edge_idxs[idx]-circ2_edge_idxs[idx-1]) > 1:
+            m_val = np.mean(circ2_image_data[circ2_edge_idxs[idx-1]:circ2_edge_idxs[idx]])
+            circ2_bins.append(bin_circle(circ2_edge_idxs[idx-1], circ2_edge_idxs[idx], m_val))
+    if ((circ2_edge_idxs[0]+len(circ2_data)) - circ2_edge_idxs[-1]) > 1:
+        m_val = (np.mean(circ2_image_data[circ2_edge_idxs[-1]:-1])+np.mean(circ2_image_data[0:circ2_edge_idxs[0]]))/2
+        circ2_bins.append(bin_circle(circ2_edge_idxs[-1], circ2_edge_idxs[0]+len(circ2_data), m_val))
+    #circ3
+    circ3_bins = []    
+    for idx in range(1,len(circ3_edge_idxs)):
+        if (circ3_edge_idxs[idx]-circ3_edge_idxs[idx-1]) > 1:
+            m_val = np.mean(circ3_image_data[circ3_edge_idxs[idx-1]:circ3_edge_idxs[idx]])
+            circ3_bins.append(bin_circle(circ3_edge_idxs[idx-1], circ3_edge_idxs[idx], m_val))
+    if ((circ3_edge_idxs[0]+len(circ3_data)) - circ3_edge_idxs[-1]) > 1:
+        m_val = (np.mean(circ3_image_data[circ3_edge_idxs[-1]:-1])+np.mean(circ3_image_data[0:circ3_edge_idxs[0]]))/2
+        circ3_bins.append(bin_circle(circ3_edge_idxs[-1], circ3_edge_idxs[0]+len(circ3_data), m_val))
     
     
+    #sort bin on mean value (descending)
+    sorted_circ1_bins = sorted(circ1_bins, key=lambda x: x.mean_val, reverse=True)
+    sorted_circ2_bins = sorted(circ2_bins, key=lambda x: x.mean_val, reverse=True)
+    sorted_circ3_bins = sorted(circ3_bins, key=lambda x: x.mean_val, reverse=True)
     
+    #filter circles that are too large or too small
+    dis_points = 2*np.pi*radius1/len(circ1_data)/4
+    
+    sorted_circ1_bins = [b for b in sorted_circ1_bins if (b.get_rad() > 2.5 and b.get_rad() < 13)]
+    sorted_circ2_bins = [b for b in sorted_circ2_bins if (b.get_rad() > 2.5 and b.get_rad() < 13)]
+    sorted_circ3_bins = [b for b in sorted_circ3_bins if (b.get_rad() > 2.5 and b.get_rad() < 13)]
+    
+ 
+    circle_groups = []
+    for c1 in sorted_circ1_bins:
+        group = [c1]
+        center = c1.get_center()
+        r = c1.get_rad()
+        for c2 in sorted_circ2_bins:
+            if (np.abs(c2.get_center()-center*radius2/radius1) < 8 and c2.get_rad() - r < 3):
+                group.append(c2)
+                break 
+        for c3 in sorted_circ3_bins:
+            if (np.abs(c3.get_center()-center*radius3/radius1) < 8 and c3.get_rad() - r < 3):
+                group.append(c3)
+                break
+        circle_groups.append(group)
+    
+    
+    #sort circle groups using the radius
+    circle_groups = [group for group in circle_groups if len(group) == 3]
+    circle_groups = sorted(circle_groups, key=lambda x: x[0].get_rad(), reverse=True)
+    
+    #for plotting 
+    circles = []
+    colors = sns.color_palette()
+    idx = 0
+    for group in circle_groups:
+        if len(group) == 3:
+            c = int(group[0].get_center())
+            if c >= len(circ1_data):
+                c -= len(circ1_data)
+            r = group[0].get_rad()
+            circ = Circle((circ1_coords[0][c],circ1_coords[1][c]) , radius = r, fill = False, ec= colors[idx])
+            circles.append(circ)
+            
+            c = int(group[1].get_center())
+            if c >= len(circ2_data):
+                c -= len(circ2_data)
+            r = group[1].get_rad()
+            circ = Circle((circ2_coords[0][c],circ2_coords[1][c]) , radius = r, fill = False, ec= colors[idx])
+            circles.append(circ)
+            
+            c = int(group[2].get_center())
+            if c >= len(circ3_data):
+                c -= len(circ3_data)
+            r = group[2].get_rad()
+            circ = Circle((circ3_coords[0][c],circ3_coords[1][c]) , radius = r, fill = False, ec= colors[idx])
+            circles.append(circ)
+            
+            idx += 1
+        
+    #should count consecutive spokes.
+    count_spokes = len(circle_groups)
     
     
     fig, axs = plt.subplots(2,3)
@@ -778,45 +865,35 @@ def find_circles(image_data, rad, sigma, low_threshold):
     axs[0,0].scatter(circ1_coords[0],circ1_coords[1],s=1)
     axs[0,0].scatter(circ2_coords[0],circ2_coords[1],s=1)
     axs[0,0].scatter(circ3_coords[0],circ3_coords[1],s=1)
+    axs[0,0].set_title('Original image')
+    
+    axs[0,1].imshow(edges_float)
+    axs[0,1].scatter(circ1_coords[0],circ1_coords[1],s=1,color='tab:orange')
+    axs[0,1].scatter(circ2_coords[0],circ2_coords[1],s=1,color='g')
+    axs[0,1].scatter(circ3_coords[0],circ3_coords[1],s=1,color='r')
+    axs[0,1].set_title('Edges in original image')
+    
+    axs[0,2].imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
+    for circ in circles:    
+        axs[0,2].add_patch(circ)
+    axs[0,2].set_title('Found spokes ' + str(count_spokes))
     
     
-    axs[0,1].plot(circ1_data,color='tab:orange')
-    axs[0,1].plot(circ1_image_data)
-    axs[0,1].axhline(y=circ1_mean_data)
-    axs[0,1].set_title('Signal & peaks inner ring')
+    axs[1,0].plot(circ1_data,color='tab:orange')
+    axs[1,0].plot(circ1_image_data)
+    axs[1,0].set_title('Signal & edges inner ring')
     
+    axs[1,1].plot(circ2_data,color='g')
+    axs[1,1].plot(circ2_image_data)
+    axs[1,1].set_title('Signal & edges middle ring')
     
-    axs[1,0].plot(circ2_data,color='g')
-    axs[1,0].plot(circ2_image_data)
-    axs[1,0].axhline(y=circ2_mean_data)
-    axs[1,0].set_title('Signal & peaks middle ring')
+    axs[1,2].plot(circ3_data,color='r')
+    axs[1,2].plot(circ3_image_data)
+    axs[1,2].set_title('Signal & edges outer ring')
     
-    axs[1,1].plot(circ3_data,color='r')
-    axs[1,1].plot(circ3_image_data)
-    axs[1,1].axhline(y=circ3_mean_data)
-    axs[1,1].set_title('Signal & peaks outer ring')
-     
-    axs[1,2].imshow(edges)
-    axs[0,2].imshow(edges_float)
     plt.show()
     
-
     
-
-    # searchradius = np.arange(3,15)
-    # hough_res = hough_circle(edges, searchradius)
-    # accums, cx, cy, radius = hough_circle_peaks(hough_res, searchradius, total_num_peaks=30,min_xdistance=20,min_ydistance=20,threshold=0.3*np.max(hough_res))
-    
-    # fig, ax = plt.subplots(1,2)
-    # ax[0].imshow(image_data_hr, cmap=plt.get_cmap("Greys_r"),vmin = np.max(image_data)/1.2, vmax=np.max(image_data))
-    # for i in range(len(cx)):    
-    #     make_circle = Circle((cx[i], cy[i]), radius = radius[i], fill=False, ec='r')
-    #     ax[0].add_patch(make_circle)
-    # ax[1].imshow(edges)
-    # plt.show()
-    
-    
-    breakpoint()
-    # return cx, cy
+    return count_spokes, fig
 
 
