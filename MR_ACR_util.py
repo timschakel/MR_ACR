@@ -801,9 +801,9 @@ def find_circles(image_data, rad, sigma, low_threshold):
     #filter circles that are too large or too small
     dis_points = 2*np.pi*radius1/len(circ1_data)/4
     
-    sorted_circ1_bins = [b for b in sorted_circ1_bins if (b.get_rad() > 2.5 and b.get_rad() < 13)]
-    sorted_circ2_bins = [b for b in sorted_circ2_bins if (b.get_rad() > 2.5 and b.get_rad() < 13)]
-    sorted_circ3_bins = [b for b in sorted_circ3_bins if (b.get_rad() > 2.5 and b.get_rad() < 13)]
+    sorted_circ1_bins = [b for b in sorted_circ1_bins if (b.get_rad() > 2.5 and b.get_rad() < 14)]
+    sorted_circ2_bins = [b for b in sorted_circ2_bins if (b.get_rad() > 2.5 and b.get_rad() < 14)]
+    sorted_circ3_bins = [b for b in sorted_circ3_bins if (b.get_rad() > 2.5 and b.get_rad() < 14)]
     
  
     circle_groups = []
