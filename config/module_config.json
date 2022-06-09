@@ -76,9 +76,12 @@
     	}
     },
     "slice_pos_t1": {
-      "filters": {
-      	"SeriesDescription": "t T1 bw634_clear"
-      	},
+      ""filters": {
+    	    "t1_series_description": "t T1 bw634_clear",
+            "t2_series_description": "t T2 bw634_clear",
+            "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
+	    	"EchoNumbers": "2"
+    	},
       "params": {
       	"slicenumberbot": "1",
       	"slicenumbertop": "11"

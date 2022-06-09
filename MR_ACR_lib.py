@@ -17,7 +17,7 @@ from MR_ACR_util import (find_z_length,find_xy_diameter,retrieve_ellipse_paramet
                          check_resolution_peaks1,check_resolution_peaks2,find_fwhm,
                          detect_edges,mask_to_coordinates,find_min_and_max_intensity_region,
                          get_mean_circle_ROI,get_mean_rect_ROI, find_centre_lowcontrast,
-                         find_circles)
+                         find_circles,get_slice_position_error)
 
 ### Helper functions
 def getValue(ds, label):
@@ -500,178 +500,68 @@ def percent_signal_ghosting(data, results, action):
     results.addFloat("Ghosting Ratio", ghosting_ratio)
     results.addObject("Percent Signal Ghosting", fig_filename)
     
-def slice_pos_t1(data,results,action):
+def slice_position(data,results,action):
     params = action["params"]
     filters = action["filters"]
+    savename = "Slice Position Error.png"
     """
     4. Slice Position Accuracy
     Determine the slice position accuracy
     Use the T1 scan 
     """
-    series_filter = {item:filters.get(item)for item in ["SeriesDescription"]}
-    data_series = applyFilters(data.series_filelist, series_filter)
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series[0],headers_only=False)
-    image_data_top = np.transpose(pixeldataIn[int(params['slicenumbertop'])-1,:,:]) # take slice-1 (0-index)
-    image_data_bot = np.transpose(pixeldataIn[int(params['slicenumberbot'])-1,:,:]) # take slice-1 (0-index)
-    image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-    
+    t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
+    t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
+    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
+    image_data_t1_top = np.transpose(pixeldataIn[int(params['slicenumbertop'])-1,:,:]) # take slice-1 (0-index)
+    image_data_t1_bot = np.transpose(pixeldataIn[int(params['slicenumberbot'])-1,:,:]) # take slice-1 (0-index)
+    image_data_t1_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
+      
     # offsets for the Slice Position insert
     # location of the Slice Position insert is defined wrt center of the phantom:
-    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_t1_center, mask_air_bubble=True)[0:2]
     x_center_px = int(x_center_px) #vertical in  plots
     y_center_px = int(y_center_px) #horizontal in plots
     
-    slice_offsets = [[58,0],[58,-4]]
-    searchrange = [10,3]
+    title_bottom_t1 = "T1 bottom"
+    title_top_t1 = "T1 top"
     
-    # bottom slice
-    edges_bot = detect_edges(image_data_bot)
-    edges_bot_wedge1 = edges_bot[y_center_px-slice_offsets[0][0]-searchrange[0]:y_center_px-slice_offsets[0][0],
-                                 x_center_px-slice_offsets[0][1]-searchrange[1]:x_center_px-slice_offsets[0][1]]   
-    edges_bot_wedge2 = edges_bot[y_center_px-slice_offsets[1][0]-searchrange[0]:y_center_px-slice_offsets[1][0],
-                                 x_center_px-slice_offsets[1][1]-searchrange[1]:x_center_px-slice_offsets[1][1]]  
-    avg_ind_bot_edge1 = np.mean(np.argwhere(edges_bot_wedge1)[:,0])
-    avg_ind_bot_edge2 = np.mean(np.argwhere(edges_bot_wedge2)[:,0])
-    slice_pos_error_bot = avg_ind_bot_edge2 - avg_ind_bot_edge1
+    fig, axs = plt.subplots(2,2)
+    fig.suptitle('Slice Position errors')
+    slice_pos_error_bot_t1 = get_slice_position_error(image_data_t1_bot,x_center_px,y_center_px,axs[0,0],title_bottom_t1)
+    slice_pos_error_top_t1 = get_slice_position_error(image_data_t1_top,x_center_px,y_center_px,axs[1,0],title_top_t1)
     
-    # top slice
-    edges_top = detect_edges(image_data_top)
-    edges_top_wedge1 = edges_top[y_center_px-slice_offsets[0][0]-searchrange[0]:y_center_px-slice_offsets[0][0],
-                                 x_center_px-slice_offsets[0][1]-searchrange[1]:x_center_px-slice_offsets[0][1]]  
-    edges_top_wedge2 = edges_top[y_center_px-slice_offsets[1][0]-searchrange[0]:y_center_px-slice_offsets[1][0],
-                                 x_center_px-slice_offsets[1][1]-searchrange[1]:x_center_px-slice_offsets[1][1]]
-    avg_ind_top_edge1 = np.mean(np.argwhere(edges_top_wedge1)[:,0])
-    avg_ind_top_edge2 = np.mean(np.argwhere(edges_top_wedge2)[:,0])
-    slice_pos_error_top = avg_ind_top_edge2 - avg_ind_top_edge1
-    
-    # Show the resolution insert:
-    slice_pos_size = np.array([50,40])
-    slice_pos_coordoffsets = np.array([100,19])
-    
-    # bottom
-    image_slice_bot = image_data_bot[y_center_px-slice_pos_coordoffsets[0]:y_center_px-slice_pos_coordoffsets[0]+slice_pos_size[0],
-                                     x_center_px-slice_pos_coordoffsets[1]:x_center_px-slice_pos_coordoffsets[1]+slice_pos_size[1] ]
-    
-    saveasbot = "Slice_position_bottom_T1.png"
-    plt.figure(99)
-    plt.imshow(image_slice_bot,cmap='gray')
-    
-    y1 = y_center_px-slice_offsets[0][0]-searchrange[0]+avg_ind_bot_edge1 - (y_center_px-slice_pos_coordoffsets[0])
-    y2 = y_center_px-slice_offsets[1][0]-searchrange[0]+avg_ind_bot_edge2 - (y_center_px-slice_pos_coordoffsets[0])
-    plt.axhline(y=y1,xmin=0.25,xmax=0.5,color='r')
-    plt.axhline(y=y2,xmin=0.5,xmax=0.75,color='r')
-    plt.title("Slice_position_bottom_T1")
-    plt.axis("off")
-    plt.savefig(saveasbot, dpi=300)
-    
-    # top
-    image_slice_top = image_data_top[y_center_px-slice_pos_coordoffsets[0]:y_center_px-slice_pos_coordoffsets[0]+slice_pos_size[0],
-                                     x_center_px-slice_pos_coordoffsets[1]:x_center_px-slice_pos_coordoffsets[1]+slice_pos_size[1] ]
-    saveastop = "Slice_position_top_T1.png"
-    plt.figure(98)
-    plt.imshow(image_slice_top,cmap='gray')
-    y1 = y_center_px-slice_offsets[0][0]-searchrange[0]+avg_ind_top_edge1 - (y_center_px-slice_pos_coordoffsets[0])
-    y2 = y_center_px-slice_offsets[1][0]-searchrange[0]+avg_ind_top_edge2 - (y_center_px-slice_pos_coordoffsets[0])
-    plt.axhline(y=y1,xmin=0.25,xmax=0.5,color='r')
-    plt.axhline(y=y2,xmin=0.5,xmax=0.75,color='r')
-    plt.title("Slice_position_top_T1")
-    plt.axis("off")
-    plt.savefig(saveastop, dpi=300)
-    
-    # Collect results
-    results.addFloat("Slice Position Error T1 slice1", slice_pos_error_bot)
-    results.addFloat("Slice Position Error T1 slice11", slice_pos_error_top)
-    results.addObject("Slice Position Error T1 slice1", saveasbot)
-    results.addObject("Slice Position Error T1 slice11", saveastop)
-
-def slice_pos_t2(data,results,action):
-    params = action["params"]
-    filters = action["filters"]
     """
-    4. Slice Position Accuracy
-    Determine the slice position accuracy
     Use the T2 scan 
     """
-    series_filter = {item:filters.get(item)for item in ["SeriesDescription"]}
+    t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
     type_filter = {item:filters.get(item)for item in ["ImageType"]}
     echo_filter = {item:filters.get(item)for item in ["EchoNumbers"]}
-    data_series = applyFilters(data.series_filelist, series_filter)
+    data_series = applyFilters(data.series_filelist, t2_series_filter)
     data_series_type = applyFilters(data_series, type_filter)
     data_series_type_echo = applyFilters(data_series_type, echo_filter)
     
     dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
-    image_data_top = np.transpose(pixeldataIn[int(params['slicenumbertop'])-1,:,:]) # take slice-1 (0-index)
-    image_data_bot = np.transpose(pixeldataIn[int(params['slicenumberbot'])-1,:,:]) # take slice-1 (0-index)
-    image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
+    image_data_t2_top = np.transpose(pixeldataIn[int(params['slicenumbertop'])-1,:,:]) # take slice-1 (0-index)
+    image_data_t2_bot = np.transpose(pixeldataIn[int(params['slicenumberbot'])-1,:,:]) # take slice-1 (0-index)
+    image_data_t2_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
     
-    
-    # offsets for the Slice Position insert
-    # location of the Slice Position insert is defined wrt center of the phantom:
-    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_t2_center, mask_air_bubble=True)[0:2]
     x_center_px = int(x_center_px) #vertical in  plots
     y_center_px = int(y_center_px) #horizontal in plots
     
-    slice_offsets = [[58,0],[58,-4]]
-    searchrange = [10,3]
+    title_bottom_t2 = "T2 bottom"
+    title_top_t2 = "T2 top"
     
-    # bottom slice
-    edges_bot = detect_edges(image_data_bot)
-    edges_bot_wedge1 = edges_bot[y_center_px-slice_offsets[0][0]-searchrange[0]:y_center_px-slice_offsets[0][0],
-                                 x_center_px-slice_offsets[0][1]-searchrange[1]:x_center_px-slice_offsets[0][1]]   
-    edges_bot_wedge2 = edges_bot[y_center_px-slice_offsets[1][0]-searchrange[0]:y_center_px-slice_offsets[1][0],
-                                 x_center_px-slice_offsets[1][1]-searchrange[1]:x_center_px-slice_offsets[1][1]]  
-    avg_ind_bot_edge1 = np.mean(np.argwhere(edges_bot_wedge1)[:,0])
-    avg_ind_bot_edge2 = np.mean(np.argwhere(edges_bot_wedge2)[:,0])
-    slice_pos_error_bot = avg_ind_bot_edge2 - avg_ind_bot_edge1
-    
-    # top slice
-    edges_top = detect_edges(image_data_top)
-    edges_top_wedge1 = edges_top[y_center_px-slice_offsets[0][0]-searchrange[0]:y_center_px-slice_offsets[0][0],
-                                 x_center_px-slice_offsets[0][1]-searchrange[1]:x_center_px-slice_offsets[0][1]]  
-    edges_top_wedge2 = edges_top[y_center_px-slice_offsets[1][0]-searchrange[0]:y_center_px-slice_offsets[1][0],
-                                 x_center_px-slice_offsets[1][1]-searchrange[1]:x_center_px-slice_offsets[1][1]]
-    avg_ind_top_edge1 = np.mean(np.argwhere(edges_top_wedge1)[:,0])
-    avg_ind_top_edge2 = np.mean(np.argwhere(edges_top_wedge2)[:,0])
-    slice_pos_error_top = avg_ind_top_edge2 - avg_ind_top_edge1
-    
-    # Show the resolution insert:
-    slice_pos_size = np.array([50,40])
-    slice_pos_coordoffsets = np.array([100,19])
-    
-    # bottom
-    image_slice_bot = image_data_bot[y_center_px-slice_pos_coordoffsets[0]:y_center_px-slice_pos_coordoffsets[0]+slice_pos_size[0],
-                                     x_center_px-slice_pos_coordoffsets[1]:x_center_px-slice_pos_coordoffsets[1]+slice_pos_size[1] ]
-    saveasbot = "Slice_position_bottom_T2.png"
-    plt.figure(97)
-    plt.imshow(image_slice_bot,cmap='gray')
-    y1 = y_center_px-slice_offsets[0][0]-searchrange[0]+avg_ind_bot_edge1 - (y_center_px-slice_pos_coordoffsets[0])
-    y2 = y_center_px-slice_offsets[1][0]-searchrange[0]+avg_ind_bot_edge2 - (y_center_px-slice_pos_coordoffsets[0])
-    plt.axhline(y=y1,xmin=0.25,xmax=0.5,color='r')
-    plt.axhline(y=y2,xmin=0.5,xmax=0.75,color='r')
-    plt.title("Slice_position_bottom_T2")
-    plt.axis("off")
-    plt.savefig(saveasbot, dpi=300)
-    
-    image_slice_top = image_data_top[y_center_px-slice_pos_coordoffsets[0]:y_center_px-slice_pos_coordoffsets[0]+slice_pos_size[0],
-                                     x_center_px-slice_pos_coordoffsets[1]:x_center_px-slice_pos_coordoffsets[1]+slice_pos_size[1] ]
-    saveastop = "Slice_position_top_T2.png"
-    plt.figure(96)
-    plt.imshow(image_slice_top,cmap='gray')
-    y1 = y_center_px-slice_offsets[0][0]-searchrange[0]+avg_ind_top_edge1 - (y_center_px-slice_pos_coordoffsets[0])
-    y2 = y_center_px-slice_offsets[1][0]-searchrange[0]+avg_ind_top_edge2 - (y_center_px-slice_pos_coordoffsets[0])
-    plt.axhline(y=y1,xmin=0.25,xmax=0.5,color='r')
-    plt.axhline(y=y2,xmin=0.5,xmax=0.75,color='r')
-    plt.title("Slice_position_top_T2")
-    plt.axis("off")
-    plt.savefig(saveastop, dpi=300)
+    slice_pos_error_bot_t2 = get_slice_position_error(image_data_t2_bot,x_center_px,y_center_px,axs[0,1],title_bottom_t2)
+    slice_pos_error_top_t2 = get_slice_position_error(image_data_t2_top,x_center_px,y_center_px,axs[1,1],title_top_t2)
     
     # Collect results
-    results.addFloat("Slice Position Error T2 slice1", slice_pos_error_bot)
-    results.addFloat("Slice Position Error T2 slice11", slice_pos_error_top)
-    results.addObject("Slice Position Error T2 slice1", saveasbot)
-    results.addObject("Slice Position Error T2 slice11", saveastop)
-    
-    
+    results.addFloat("Slice Position Error T1 slice1", slice_pos_error_bot_t1)
+    results.addFloat("Slice Position Error T1 slice11", slice_pos_error_top_t1)
+    results.addFloat("Slice Position Error T2 slice1", slice_pos_error_bot_t2)
+    results.addFloat("Slice Position Error T2 slice11", slice_pos_error_top_t2)
+    results.addObject("Slice Position Error", savename)
+  
 def low_contrast_object_detectability(data, results, action):
     params = action["params"]
     filters = action["filters"]

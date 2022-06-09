@@ -75,21 +75,13 @@
     	 "slicenumber": "7"
     	}
     },
-    "slice_pos_t1": {
+    "slice_position": {
       "filters": {
-      	"SeriesDescription": "t T1 bw436"
-      	},
-      "params": {
-      	"slicenumberbot": "1",
-      	"slicenumbertop": "11"
-      }
-    },
-    "slice_pos_t2": {
-      "filters": {
-      	"SeriesDescription": "t T2 bw436",
-      	"ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
-      	"EchoNumbers": "2"
-      	},
+    	    "t1_series_description": "t T1 bw436",
+            "t2_series_description": "t T2 bw436",
+            "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
+	    	"EchoNumbers": "2"
+	    	},
       "params": {
       	"slicenumberbot": "1",
       	"slicenumbertop": "11"

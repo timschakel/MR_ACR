@@ -897,3 +897,37 @@ def find_circles(image_data, rad, sigma, low_threshold):
     return count_spokes, fig
 
 
+def get_slice_position_error(image_data,x_center_px,y_center_px,axs,title):
+    """
+    Detect edges of input image
+    Using offsets determine the location of the wedges
+    Report difference between adjacent wedges
+    """
+    slice_offsets = [[58,0],[58,-4]]
+    searchrange = [10,3]
+    
+    edges = detect_edges(image_data)
+    edges_wedge1 = edges[y_center_px-slice_offsets[0][0]-searchrange[0]:y_center_px-slice_offsets[0][0],
+                         x_center_px-slice_offsets[0][1]-searchrange[1]:x_center_px-slice_offsets[0][1]]   
+    edges_wedge2 = edges[y_center_px-slice_offsets[1][0]-searchrange[0]:y_center_px-slice_offsets[1][0],
+                         x_center_px-slice_offsets[1][1]-searchrange[1]:x_center_px-slice_offsets[1][1]]  
+    avg_ind_edge1 = np.mean(np.argwhere(edges_wedge1)[:,0])
+    avg_ind_edge2 = np.mean(np.argwhere(edges_wedge2)[:,0])
+    slice_pos_error = avg_ind_edge2 - avg_ind_edge1
+    
+    # Show the resolution insert:
+    slice_pos_size = np.array([50,40])
+    slice_pos_coordoffsets = np.array([100,19])
+    
+    image_slice = image_data[y_center_px-slice_pos_coordoffsets[0]:y_center_px-slice_pos_coordoffsets[0]+slice_pos_size[0],
+                             x_center_px-slice_pos_coordoffsets[1]:x_center_px-slice_pos_coordoffsets[1]+slice_pos_size[1] ]
+    
+    y1 = y_center_px-slice_offsets[0][0]-searchrange[0]+avg_ind_edge1 - (y_center_px-slice_pos_coordoffsets[0])
+    y2 = y_center_px-slice_offsets[1][0]-searchrange[0]+avg_ind_edge2 - (y_center_px-slice_pos_coordoffsets[0])
+    axs.imshow(image_slice,cmap='gray')
+    axs.axhline(y=y1,xmin=0.25,xmax=0.5,color='r')
+    axs.axhline(y=y2,xmin=0.5,xmax=0.75,color='r')
+    axs.set_title(title)
+    axs.axis("off")
+        
+    return slice_pos_error
