@@ -42,10 +42,13 @@ class bin_circle:
         return np.min([r1,r2])
     
     def set_angle(self,x1,x2):
-        self.angle = np.arctan2(x1-self.origin[0], x2-self.origin[1])
+        self.angle = np.arctan2(x1-self.origin[0], x2-self.origin[1])[0]
         
     def get_angle(self):
         return self.angle
+    
+    def get_deg(self):
+        return self.angle*180/np.pi
 
 def detect_edges(
     image, sigma=0.3, low_threshold=750, high_threshold=None
@@ -717,7 +720,7 @@ def create_circular_mask(image, rad):
     
     return mask
 
-def find_circles(image_data, rad, sigma, low_threshold):
+def find_circles(image_data, rad, sigma, low_threshold, extra_ax):
     #interpolate image
     x = np.arange(0,image_data.shape[1])
     y = np.arange(0,image_data.shape[0])
@@ -738,7 +741,8 @@ def find_circles(image_data, rad, sigma, low_threshold):
     #radii for circular profiles we take
     profile_radii = [52,102,152]
     
-    fedges = interp2d(ynew*4,xnew*4,edges_float,kind='linear')
+    #make interpolation maps so we get data on the profile coordinates
+    fedges = interp2d(ynew*4,xnew*4,edges,kind='linear')
     fimage_hr = interp2d(ynew*4,xnew*4,image_data_hr,kind='cubic')
 
     angle_offset = 8*np.pi/180 #~ 8 degree rotation per slice    
@@ -761,10 +765,10 @@ def find_circles(image_data, rad, sigma, low_threshold):
         for idx in range(1,len(profile_edge_idxs[circ])):
             if (profile_edge_idxs[circ][idx]-profile_edge_idxs[circ][idx-1]) > 1:
                 m_val = np.mean(profile_data[circ][profile_edge_idxs[circ][idx-1]:profile_edge_idxs[circ][idx]])
-                tmp_bins.append(bin_circle(profile_edge_idxs[circ][idx-1], profile_edge_idxs[circ][idx], m_val, [rad,rad], len(circ1_data)))
+                tmp_bins.append(bin_circle(profile_edge_idxs[circ][idx-1], profile_edge_idxs[circ][idx], m_val, [rad,rad], len(profile_edges[circ])))
         if ((profile_edge_idxs[circ][0]+len(profile_edges[circ])) - profile_edge_idxs[circ][-1]) > 1:
             m_val = (np.mean(profile_data[circ][profile_edge_idxs[circ][-1]:-1])+np.mean(profile_data[circ][0:profile_edge_idxs[circ][0]]))/2
-            tmp_bins.append(bin_circle(profile_edge_idxs[circ][-1], profile_edge_idxs[circ][0]+len(profile_edges[circ]), m_val, [rad,rad], len(circ1_data)))
+            tmp_bins.append(bin_circle(profile_edge_idxs[circ][-1], profile_edge_idxs[circ][0]+len(profile_edges[circ]), m_val, [rad,rad], len(profile_edges[circ])))
         #remove bins that are too large or too small
         tmp_bins = [b for b in tmp_bins if (b.get_rad() > 2.5 and b.get_rad() < 14)]
         # Set the angles for the circelbins
@@ -775,51 +779,54 @@ def find_circles(image_data, rad, sigma, low_threshold):
         profile_bins.append(tmp_bins)
     
     
-    circle_groups = []
+    spokes = []
     for c1 in profile_bins[0]:
-        group = [c1]
-        center = c1.get_center()
-        r = c1.get_rad()
+        spoke = [c1]
         for c2 in profile_bins[1]:
-            if (np.abs(c2.get_center()-center*radius2/radius1) < 8 and c2.get_rad() - r < 3):
-                group.append(c2)
-                break 
-        for c3 in profile_bins[2]:
-            if (np.abs(c3.get_center()-center*radius3/radius1) < 8 and c3.get_rad() - r < 3):
-                group.append(c3)
+            if (np.abs(c2.get_deg()-c1.get_deg()) < 5 and c2.get_rad() - c1.get_rad() < 3):
+                spoke.append(c2)
                 break
-        circle_groups.append(group)
+        for c3 in profile_bins[2]:
+            if (np.abs(c3.get_deg()-c1.get_deg()) < 5 and c3.get_rad() - c1.get_rad() < 3):
+                spoke.append(c3)
+                break
+        spokes.append(spoke)
     
     
-    #sort circle groups using the radius
-    circle_groups = [group for group in circle_groups if len(group) == 3]
-    circle_groups = sorted(circle_groups, key=lambda x: x[0].get_rad(), reverse=True)
+    #remove spokes without 3 circles
+    spokes = [spoke for spoke in spokes if len(spoke) == 3]
     
-    #for plotting 
+    #count consecutive spokes.
+    count_spokes = 0
+    if len(spokes) > 0: # if at least one spoke is found
+        spoke_angles = [spoke[0].get_deg() for spoke in spokes]
+        if (spoke_angles[0] > -90 and spoke_angles[0] < -50): # check if it is in fact the first spoke
+            count_spokes += 1
+            #check the diffs
+            if len(spokes) > 1:
+                diff_spoke_angles = [spoke_angles[i+1] - spoke_angles[i] for i in range(len(spoke_angles)-1)]
+                diff_spoke_angles = [d if d > 0 else d+360 for d in diff_spoke_angles]
+                for d in diff_spoke_angles:
+                    if (d < 40):
+                        count_spokes += 1
+                    else:                        
+                        break 
+
+    
+    #plotting 
     circles = []
     colors = sns.color_palette()
     idx = 0
-    for group in circle_groups:
+    for spoke in spokes:
         for circ in range(3):
-            c = int(group[circ].get_center())
+            c = int(spoke[circ].get_center())
             if c >= len(profile_edges[circ]):
                 c -= len(profile_edges[circ])
-            r = group[circ].get_rad()
+            r = spoke[circ].get_rad()
             circ = Circle((profile_coordinates[circ][0][c],profile_coordinates[circ][1][c]) , radius = r, fill = False, ec= colors[idx])
             circles.append(circ)
         idx += 1
         
-    #should count consecutive spokes.
-    
-    #for spoke in range(1,10):
-        # start with the biggest found circle from inner
-        # spoke is resolved when:
-        #   circle size (get_rad()) is comparable between inner/middle/outer (max 2?)
-        #   AND the angle (get_angle()) is comparable (max 0.1 rad?)
-        # move to next spoke
-        #   angle increase? 
-    
-    count_spokes = len(circle_groups)
         
     fig, axs = plt.subplots(2,3)
     axs[0,0].imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
@@ -837,7 +844,7 @@ def find_circles(image_data, rad, sigma, low_threshold):
     axs[0,2].imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
     for circ in circles:    
         axs[0,2].add_patch(circ)
-    axs[0,2].set_title('Found spokes ' + str(count_spokes))
+    axs[0,2].set_title('Found consecutive ' + str(count_spokes) + ' spokes')
     
     
     axs[1,0].plot(profile_edges[0],color='tab:orange')
@@ -853,6 +860,26 @@ def find_circles(image_data, rad, sigma, low_threshold):
     axs[1,2].set_title('Signal & edges outer ring')
     
     plt.show()
+    
+    # for overall plot (cannot reuse artists...)
+    circles2 = []
+    colors = sns.color_palette()
+    idx = 0
+    for spoke in spokes:
+        for circ in range(3):
+            c = int(spoke[circ].get_center())
+            if c >= len(profile_edges[circ]):
+                c -= len(profile_edges[circ])
+            r = spoke[circ].get_rad()
+            circ = Circle((profile_coordinates[circ][0][c],profile_coordinates[circ][1][c]) , radius = r, fill = False, ec= colors[idx])
+            circles2.append(circ)
+        idx += 1
+
+    extra_ax.imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
+    for circ in circles2:    
+        extra_ax.add_patch(circ)
+    extra_ax.set_title('Found consecutive ' + str(count_spokes) + ' spokes')
+    
     
     return count_spokes, fig
 

@@ -602,25 +602,32 @@ def low_contrast_object_detectability(data, results, action):
     t2_image_data = pixeldataIn[int(params['firstslice'])-1:int(params['lastslice']),:,:] # take slice-1 (0-index)
     
     t1_count_spokes = 0
-
+    t1_fig, ((t1_ax1, t1_ax2), (t1_ax3, t1_ax4)) = plt.subplots(2,2)
+    t1_axs = [t1_ax1, t1_ax2, t1_ax3, t1_ax4]
     #for i in range(4):
     for i in np.arange(3,-1,-1):
         image_data = np.transpose(t1_image_data[i,:,:]) # take slice-1 (0-index)
         lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
-        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']))
+        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']), t1_axs[i])
         t1_count_spokes += count_spokes 
         fig_to_save.savefig(fig_filenames[i], dpi= 300)
+    t1_fig.savefig("T1_slices.png", dpi= 300)
     
     t2_count_spokes = 0
-    for i in range(4):
+    t2_fig, ((t2_ax1, t2_ax2), (t2_ax3, t2_ax4)) = plt.subplots(2,2)
+    t2_axs = [t2_ax1, t2_ax2, t2_ax3, t2_ax4]
+    for i in np.arange(3,-1,-1):
         image_data = np.transpose(t2_image_data[i,:,:]) # take slice-1 (0-index)
         lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
-        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']))
+        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']), t2_axs[i])
         t2_count_spokes += count_spokes 
         fig_to_save.savefig(fig_filenames[i+4], dpi= 300)
+    t2_fig.savefig("T2_slices.png", dpi= 300)
     
     results.addFloat("T1 number of counted spokes", t1_count_spokes)
     results.addFloat("T2 number of counted spokes", t2_count_spokes)
+    results.addObject("T1 slices", "T1_slices.png")
+    results.addObject("T2 slices", "T2_slices.png")
     results.addObject("T1 slice 1", fig_filenames[0])
     results.addObject("T1 slice 2", fig_filenames[1])
     results.addObject("T1 slice 3", fig_filenames[2])
