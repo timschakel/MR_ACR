@@ -25,13 +25,17 @@
       	"slicenumber": "6"
       }
     },
-    "resolution_t1": {
+    "resolution": {
       "filters": {
-      	"SeriesDescription": "t T1 bw436"
-      	},
+    	    "t1_series_description": "t T1 bw436",
+            "t2_series_description": "t T2 bw436",
+            "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
+	    	"EchoNumbers": "2"
+	    	},
       "params": {
       	"slicenumber": "1",
-      	"bg_factor": 5
+      	"bg_factor_t1": 5,
+      	"bg_factor_t2": 4
       }
     },
     "resolution_t2": {

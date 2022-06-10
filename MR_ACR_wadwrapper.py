@@ -11,27 +11,21 @@ __author__ = 'tschakel'
 
 import os
 
-# for local prototyping, add path
-#import sys
-#sys.path.insert(0, 'C:/Users/Tim/github/wadqc')
-
 # this will fail unless wad_qc is already installed
 from wad_qc.module import pyWADinput
 
-"""
-if not 'MPLCONFIGDIR' in os.environ:
-    import pkg_resources
-    try:
-        #only for matplotlib < 3 should we use the tmp work around, but it should be applied before importing matplotlib
-        matplotlib_version = [int(v) for v in pkg_resources.get_distribution("matplotlib").version.split('.')]
-        if matplotlib_version[0]<3:
-            os.environ['MPLCONFIGDIR'] = "/tmp/.matplotlib" # if this folder already exists it must be accessible by the owner of WAD_Processor 
-    except:
-        os.environ['MPLCONFIGDIR'] = "/tmp/.matplotlib" # if this folder already exists it must be accessible by the owner of WAD_Processor 
+# if not 'MPLCONFIGDIR' in os.environ:
+#     import pkg_resources
+#     try:
+#         #only for matplotlib < 3 should we use the tmp work around, but it should be applied before importing matplotlib
+#         matplotlib_version = [int(v) for v in pkg_resources.get_distribution("matplotlib").version.split('.')]
+#         if matplotlib_version[0]<3:
+#             os.environ['MPLCONFIGDIR'] = "/tmp/.matplotlib" # if this folder already exists it must be accessible by the owner of WAD_Processor 
+#     except:
+#         os.environ['MPLCONFIGDIR'] = "/tmp/.matplotlib" # if this folder already exists it must be accessible by the owner of WAD_Processor 
 
-import matplotlib
-matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
-"""
+# import matplotlib
+# matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
 
 import MR_ACR_lib
 
@@ -64,10 +58,8 @@ if __name__ == "__main__":
             MR_ACR_lib.geometry_z(data, results, action)
         elif name == 'geometry_xy':
             MR_ACR_lib.geometry_xy(data, results, action)
-        elif name == 'resolution_t1':
-            MR_ACR_lib.resolution_t1(data, results, action)
-        elif name == 'resolution_t2':
-            MR_ACR_lib.resolution_t2(data, results, action)
+        elif name == 'resolution':
+            MR_ACR_lib.resolution(data, results, action)
         elif name == 'slice_thickness':
             MR_ACR_lib.slice_thickness(data, results, action)
         elif name == 'slice_position':

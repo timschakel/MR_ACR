@@ -143,8 +143,8 @@ def plot_edges_on_image(
     else:
         plt.show(block=True)
 
-    plt.clf()
-    plt.close()
+    # plt.clf()
+    # plt.close()
     
 def plot_ellipse_on_image(
     ellipse, acquisition, title=None, draw_axes=False, save_as: str = None):
@@ -186,8 +186,8 @@ def plot_ellipse_on_image(
         plt.savefig(save_as, dpi=300)
     else:
         plt.show(block=True)
-    plt.clf()
-    plt.close()
+    # plt.clf()
+    # plt.close()
     
 def mask_to_coordinates(mask: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -469,11 +469,6 @@ def check_resolution_peaks1(image_data, res_locs, mean_bg, bg_factor):
     """
     heigth = bg_factor * mean_bg
     resolution_resolved = [False, False, False, False, False, False]
-    
-    #mean_x_signal = np.mean(image_data[ res_locs[0,1]:res_locs[0,1]+y_range,
-    #                                    res_locs[0,0]:res_locs[0,0]+x_range],axis=0)
-    #mean_y_signal = np.mean(image_data[ res_locs[1,1]:res_locs[1,1]+y_range,
-    #                                    res_locs[1,0]-x_range:res_locs[1,0]],axis=1)
     
     # Horizontal 1.1
     x_range = 12 #pixels
@@ -834,30 +829,33 @@ def find_circles(image_data, rad, sigma, low_threshold, extra_ax):
     for circ in range(3):
         axs[0,0].scatter(profile_coordinates[circ][0],profile_coordinates[circ][1],s=1)
     axs[0,0].set_title('Original image')
+    axs[0,0].axis('off')
     
     axs[0,1].imshow(edges)
     axs[0,1].scatter(profile_coordinates[0][0],profile_coordinates[0][1],s=1,color='tab:orange')
     axs[0,1].scatter(profile_coordinates[1][0],profile_coordinates[1][1],s=1,color='g')
     axs[0,1].scatter(profile_coordinates[2][0],profile_coordinates[2][1],s=1,color='r')
-    axs[0,1].set_title('Edges in original image')
+    axs[0,1].set_title('Edges')
+    axs[0,1].axis('off')
     
     axs[0,2].imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
     for circ in circles:    
         axs[0,2].add_patch(circ)
-    axs[0,2].set_title('Found consecutive ' + str(count_spokes) + ' spokes')
+    axs[0,2].set_title('Found ' + str(count_spokes) + ' consecutive spokes')
+    axs[0,2].axis('off')
     
     
     axs[1,0].plot(profile_edges[0],color='tab:orange')
     axs[1,0].plot(profile_data[0])
-    axs[1,0].set_title('Signal & edges inner ring')
+    axs[1,0].set_title('Signal&edges inner')
     
     axs[1,1].plot(profile_edges[1],color='g')
     axs[1,1].plot(profile_data[1])
-    axs[1,1].set_title('Signal & edges middle ring')
+    axs[1,1].set_title('Signal&edges middle')
     
     axs[1,2].plot(profile_edges[2],color='r')
     axs[1,2].plot(profile_data[2])
-    axs[1,2].set_title('Signal & edges outer ring')
+    axs[1,2].set_title('Signal&edges outer')
     
     plt.show()
     
@@ -878,7 +876,8 @@ def find_circles(image_data, rad, sigma, low_threshold, extra_ax):
     extra_ax.imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
     for circ in circles2:    
         extra_ax.add_patch(circ)
-    extra_ax.set_title('Found consecutive ' + str(count_spokes) + ' spokes')
+    extra_ax.set_title('Found ' + str(count_spokes) + ' consecutive spokes')
+    extra_ax.axis('off')
     
     
     return count_spokes, fig
