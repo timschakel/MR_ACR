@@ -24,19 +24,28 @@ from scipy.interpolate import interp2d
 import seaborn as sns
 
 class bin_circle:
-    def __init__(self, left, right, mean_val):
+    def __init__(self, left, right, mean_val,origin,size):
         self.left = left 
         self.right = right
         self.mean_val = mean_val
+        self.origin = origin #array
+        self.angle = None #just initialize
+        self.size = size
     
     def get_center(self):
-        return (self.right + self.left)/2
+        return ((self.right + self.left)/2)%self.size
     
     def get_rad(self):
         c = self.get_center()
         r1 = c - self.left 
         r2 = self.right - c
         return np.min([r1,r2])
+    
+    def set_angle(self,x1,x2):
+        self.angle = np.arctan2(x1-self.origin[0], x2-self.origin[1])
+        
+    def get_angle(self):
+        return self.angle
 
 def detect_edges(
     image, sigma=0.3, low_threshold=750, high_threshold=None
@@ -302,8 +311,7 @@ def find_xy_diameter(image_data_xy,pixel_spacing, acqdate, params):
        draw_axes=True,
        save_as=geometry_xy_filename)
    
-   return x_diameter_mm, y_diameter_mm,x_center_px,y_center_px,geometry_xy_filename
-   
+   return x_diameter_mm, y_diameter_mm,x_center_px,y_center_px,geometry_xy_filename  
     
 def find_z_length(image_data_z,pixel_spacing,acqdate,params):
     """
@@ -737,12 +745,18 @@ def find_circles(image_data, rad, sigma, low_threshold):
             if edges[i,j]:
                 edges_float[i,j] = 1.0
     
+    angle_offset = 8*np.pi/180 #~ 8 degree rotation per slice
+    #angles = np.linspace((-0.5*np.pi-(slice-1)*angle_offset),(1.5*np.pi-(slice-1)*angle_offset),num=100)
+    
     fedges = interp2d(ynew*4,xnew*4,edges_float,kind='linear')
-    angles = np.linspace(0.0,2*np.pi,num=300)
+    #angles = np.linspace(0.0,2*np.pi,num=300)
+    angles = np.linspace((-0.5*np.pi-angle_offset),(1.5*np.pi-angle_offset),num=300)
     circ1_coords = [rad+radius1*np.cos(angles),rad+radius1*np.sin(angles)]
-    angles = np.linspace(0.0,2*np.pi,num=int(300*radius2/radius1))
+    #angles = np.linspace(0.0,2*np.pi,num=int(300*radius2/radius1))
+    angles = np.linspace((-0.5*np.pi-angle_offset),(1.5*np.pi-angle_offset),num=int(300*radius2/radius1))
     circ2_coords = [rad+radius2*np.cos(angles),rad+radius2*np.sin(angles)]
-    angles = np.linspace(0.0,2*np.pi,num=int(300*radius3/radius1))
+    #angles = np.linspace(0.0,2*np.pi,num=int(300*radius3/radius1))
+    angles = np.linspace((-0.5*np.pi-angle_offset),(1.5*np.pi-angle_offset),num=int(300*radius3/radius1))
     circ3_coords = [rad+radius3*np.cos(angles),rad+radius3*np.sin(angles)]
     circ1_data = [fedges(circ1_coords[0][i], circ1_coords[1][i]) for i in range(circ1_coords[0].shape[0])]
     circ2_data = [fedges(circ2_coords[0][i], circ2_coords[1][i]) for i in range(circ2_coords[0].shape[0])]
@@ -753,7 +767,7 @@ def find_circles(image_data, rad, sigma, low_threshold):
     circ1_image_data = [fimage_hr(circ1_coords[0][i], circ1_coords[1][i]) for i in range(circ1_coords[0].shape[0])]
     circ2_image_data = [fimage_hr(circ2_coords[0][i], circ2_coords[1][i]) for i in range(circ2_coords[0].shape[0])]
     circ3_image_data = [fimage_hr(circ3_coords[0][i], circ3_coords[1][i]) for i in range(circ3_coords[0].shape[0])]
-    #normalize
+    #normalizeaxs
     circ1_image_data /= np.max(circ1_image_data)
     circ2_image_data /= np.max(circ2_image_data)
     circ3_image_data /= np.max(circ3_image_data)
@@ -769,30 +783,43 @@ def find_circles(image_data, rad, sigma, low_threshold):
     for idx in range(1,len(circ1_edge_idxs)):
         if (circ1_edge_idxs[idx]-circ1_edge_idxs[idx-1]) > 1:
             m_val = np.mean(circ1_image_data[circ1_edge_idxs[idx-1]:circ1_edge_idxs[idx]])
-            circ1_bins.append(bin_circle(circ1_edge_idxs[idx-1], circ1_edge_idxs[idx], m_val))
+            circ1_bins.append(bin_circle(circ1_edge_idxs[idx-1], circ1_edge_idxs[idx], m_val,[rad,rad],len(circ1_data)))
     if ((circ1_edge_idxs[0]+len(circ1_data)) - circ1_edge_idxs[-1]) > 1:
         m_val = (np.mean(circ1_image_data[circ1_edge_idxs[-1]:-1])+np.mean(circ1_image_data[0:circ1_edge_idxs[0]]))/2
-        circ1_bins.append(bin_circle(circ1_edge_idxs[-1], circ1_edge_idxs[0]+len(circ1_data), m_val))
+        circ1_bins.append(bin_circle(circ1_edge_idxs[-1], circ1_edge_idxs[0]+len(circ1_data), m_val,[rad,rad],len(circ1_data)))
     #circ2 
     circ2_bins = []    
     for idx in range(1,len(circ2_edge_idxs)):
         if (circ2_edge_idxs[idx]-circ2_edge_idxs[idx-1]) > 1:
             m_val = np.mean(circ2_image_data[circ2_edge_idxs[idx-1]:circ2_edge_idxs[idx]])
-            circ2_bins.append(bin_circle(circ2_edge_idxs[idx-1], circ2_edge_idxs[idx], m_val))
+            circ2_bins.append(bin_circle(circ2_edge_idxs[idx-1], circ2_edge_idxs[idx], m_val,[rad,rad],len(circ2_data)))
     if ((circ2_edge_idxs[0]+len(circ2_data)) - circ2_edge_idxs[-1]) > 1:
         m_val = (np.mean(circ2_image_data[circ2_edge_idxs[-1]:-1])+np.mean(circ2_image_data[0:circ2_edge_idxs[0]]))/2
-        circ2_bins.append(bin_circle(circ2_edge_idxs[-1], circ2_edge_idxs[0]+len(circ2_data), m_val))
+        circ2_bins.append(bin_circle(circ2_edge_idxs[-1], circ2_edge_idxs[0]+len(circ2_data), m_val,[rad,rad],len(circ2_data)))
     #circ3
     circ3_bins = []    
     for idx in range(1,len(circ3_edge_idxs)):
         if (circ3_edge_idxs[idx]-circ3_edge_idxs[idx-1]) > 1:
             m_val = np.mean(circ3_image_data[circ3_edge_idxs[idx-1]:circ3_edge_idxs[idx]])
-            circ3_bins.append(bin_circle(circ3_edge_idxs[idx-1], circ3_edge_idxs[idx], m_val))
+            circ3_bins.append(bin_circle(circ3_edge_idxs[idx-1], circ3_edge_idxs[idx], m_val,[rad,rad],len(circ3_data)))
     if ((circ3_edge_idxs[0]+len(circ3_data)) - circ3_edge_idxs[-1]) > 1:
         m_val = (np.mean(circ3_image_data[circ3_edge_idxs[-1]:-1])+np.mean(circ3_image_data[0:circ3_edge_idxs[0]]))/2
-        circ3_bins.append(bin_circle(circ3_edge_idxs[-1], circ3_edge_idxs[0]+len(circ3_data), m_val))
+        circ3_bins.append(bin_circle(circ3_edge_idxs[-1], circ3_edge_idxs[0]+len(circ3_data), m_val,[rad,rad],len(circ3_data)))
     
+    breakpoint()
+    # Set the angles for the circelbins
+    for cbin in circ1_bins:
+        centercoords=[circ1_coords[0][int(cbin.get_center())],circ1_coords[1][int(cbin.get_center())]]
+        cbin.set_angle(centercoords[1], centercoords[0])
     
+    for cbin in circ2_bins:
+        centercoords=[circ2_coords[0][int(cbin.get_center())],circ2_coords[1][int(cbin.get_center())]]
+        cbin.set_angle(centercoords[1], centercoords[0])
+        
+    for cbin in circ3_bins:
+        centercoords=[circ3_coords[0][int(cbin.get_center())],circ3_coords[1][int(cbin.get_center())]]
+        cbin.set_angle(centercoords[1], centercoords[0])
+        
     #sort bin on mean value (descending)
     sorted_circ1_bins = sorted(circ1_bins, key=lambda x: x.mean_val, reverse=True)
     sorted_circ2_bins = sorted(circ2_bins, key=lambda x: x.mean_val, reverse=True)
@@ -856,9 +883,49 @@ def find_circles(image_data, rad, sigma, low_threshold):
             idx += 1
         
     #should count consecutive spokes.
+    
+    #for spoke in range(1,10):
+        # start with the biggest found circle from inner
+        # spoke is resolved when:
+        #   circle size (get_rad()) is comparable between inner/middle/outer (max 2?)
+        #   AND the angle (get_angle()) is comparable (max 0.1 rad?)
+        # move to next spoke
+        #   angle increase? 
+    
+    circle_groups2 = []
+    for c1 in sorted_circ1_bins:
+        group = [c1]
+        center = c1.get_center()
+        r = c1.get_rad()
+        for c2 in sorted_circ2_bins:
+            if (np.abs(c2.get_center()-center*radius2/radius1) < 8 and c2.get_rad() - r < 3):
+                group.append(c2)
+                break 
+        for c3 in sorted_circ3_bins:
+            if (np.abs(c3.get_center()-center*radius3/radius1) < 8 and c3.get_rad() - r < 3):
+                group.append(c3)
+                break
+        circle_groups2.append(group)
+    
+    circle_groups2_sorted = sorted(circle_groups2, key=lambda x: x[0].get_rad(), reverse=True)
+    for group in circle_groups2_sorted:
+        centercoords=[circ1_coords[0][int(group[0].get_center())],circ1_coords[1][int(group[0].get_center())]]
+        group[0].set_angle(centercoords[1], centercoords[0])
+        angle = group[0].get_angle()
+        #angle = np.arctan2(centercoords[1]-rad,centercoords[0]-rad) * 180 / np.pi
+        print(str(angle)+' '+str(group[0].get_rad())+' '+str(len(group)))
+    
+    for group in circle_groups:
+        centercoords=[circ2_coords[0][int(group[1].get_center())],circ2_coords[1][int(group[1].get_center())]]
+        angle = np.arctan2(centercoords[1]-rad,centercoords[0]-rad) * 180 / np.pi
+        print(str(angle)+' '+str(group[0].get_rad()))
+        
+    for c1 in sorted_circ1_bins:
+        print(str(c1.get_angle())+' '+str(c1.get_rad()))
+        
+    
     count_spokes = len(circle_groups)
-    
-    
+        
     fig, axs = plt.subplots(2,3)
     axs[0,0].imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
     axs[0,0].scatter(rad, rad)
@@ -893,7 +960,7 @@ def find_circles(image_data, rad, sigma, low_threshold):
     
     plt.show()
     
-    
+    breakpoint()
     return count_spokes, fig
 
 
