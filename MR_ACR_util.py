@@ -24,19 +24,28 @@ from scipy.interpolate import interp2d
 import seaborn as sns
 
 class bin_circle:
-    def __init__(self, left, right, mean_val):
+    def __init__(self, left, right, mean_val,origin,size):
         self.left = left 
         self.right = right
         self.mean_val = mean_val
+        self.origin = origin #array
+        self.angle = None #just initialize
+        self.size = size
     
     def get_center(self):
-        return (self.right + self.left)/2
+        return ((self.right + self.left)/2)%self.size
     
     def get_rad(self):
         c = self.get_center()
         r1 = c - self.left 
         r2 = self.right - c
         return np.min([r1,r2])
+    
+    def set_angle(self,x1,x2):
+        self.angle = np.arctan2(x1-self.origin[0], x2-self.origin[1])
+        
+    def get_angle(self):
+        return self.angle
 
 def detect_edges(
     image, sigma=0.3, low_threshold=750, high_threshold=None
@@ -302,8 +311,7 @@ def find_xy_diameter(image_data_xy,pixel_spacing, acqdate, params):
        draw_axes=True,
        save_as=geometry_xy_filename)
    
-   return x_diameter_mm, y_diameter_mm,x_center_px,y_center_px,geometry_xy_filename
-   
+   return x_diameter_mm, y_diameter_mm,x_center_px,y_center_px,geometry_xy_filename  
     
 def find_z_length(image_data_z,pixel_spacing,acqdate,params):
     """
@@ -728,16 +736,12 @@ def find_circles(image_data, rad, sigma, low_threshold):
     edges = edges.astype('float64')
 
     #radii for circular profiles we take
-    radius1 = 13*4
-    radius2 = 26*4-2
-    radius3 = 38*4
-    
     profile_radii = [52,102,152]
     
-    #create interpolation map for the edges and the high resolution image
-    #that way we can index with the exact coordinates of the circular profile
-    fedges = interp2d(ynew*4,xnew*4,edges,kind='linear')
+    fedges = interp2d(ynew*4,xnew*4,edges_float,kind='linear')
     fimage_hr = interp2d(ynew*4,xnew*4,image_data_hr,kind='cubic')
+
+    angle_offset = 8*np.pi/180 #~ 8 degree rotation per slice    
     
     profile_coordinates = [] # coordinates of circular profile
     profile_edges = [] # edge detection data of the circular profile
@@ -745,7 +749,7 @@ def find_circles(image_data, rad, sigma, low_threshold):
     profile_edge_idxs = [] # the indices in profile_edges that are larger than 0 > edges
     profile_bins = [] # the circular profile divided into bins based on the edge data
     for circ in range(3):    
-        angles = np.linspace(0.0,2*np.pi,num=int(300*profile_radii[circ]/profile_radii[0]))
+        angles = np.linspace((-0.5*np.pi-angle_offset),(1.5*np.pi-angle_offset),num=int(300*profile_radii[circ]/profile_radii[0]))
         profile_coordinates.append([rad+profile_radii[circ]*np.cos(angles),rad+profile_radii[circ]*np.sin(angles)])
         profile_edges.append([fedges(profile_coordinates[circ][0][i], profile_coordinates[circ][1][i])[0] for i in range(profile_coordinates[circ][0].shape[0])])
         profile_data.append([fimage_hr(profile_coordinates[circ][0][i], profile_coordinates[circ][1][i])[0] for i in range(profile_coordinates[circ][0].shape[0])])
@@ -757,16 +761,20 @@ def find_circles(image_data, rad, sigma, low_threshold):
         for idx in range(1,len(profile_edge_idxs[circ])):
             if (profile_edge_idxs[circ][idx]-profile_edge_idxs[circ][idx-1]) > 1:
                 m_val = np.mean(profile_data[circ][profile_edge_idxs[circ][idx-1]:profile_edge_idxs[circ][idx]])
-                tmp_bins.append(bin_circle(profile_edge_idxs[circ][idx-1], profile_edge_idxs[circ][idx], m_val))
+                tmp_bins.append(bin_circle(profile_edge_idxs[circ][idx-1], profile_edge_idxs[circ][idx], m_val, [rad,rad], len(circ1_data)))
         if ((profile_edge_idxs[circ][0]+len(profile_edges[circ])) - profile_edge_idxs[circ][-1]) > 1:
             m_val = (np.mean(profile_data[circ][profile_edge_idxs[circ][-1]:-1])+np.mean(profile_data[circ][0:profile_edge_idxs[circ][0]]))/2
-            tmp_bins.append(bin_circle(profile_edge_idxs[circ][-1], profile_edge_idxs[circ][0]+len(profile_edges[circ]), m_val))
+            tmp_bins.append(bin_circle(profile_edge_idxs[circ][-1], profile_edge_idxs[circ][0]+len(profile_edges[circ]), m_val, [rad,rad], len(circ1_data)))
         #remove bins that are too large or too small
         tmp_bins = [b for b in tmp_bins if (b.get_rad() > 2.5 and b.get_rad() < 14)]
+        # Set the angles for the circelbins
+        for cbin in tmp_bins:
+            centercoords=[profile_coordinates[circ][0][int(cbin.get_center())],profile_coordinates[circ][1][int(cbin.get_center())]]
+            cbin.set_angle(centercoords[1], centercoords[0])
+        #add bins to list
         profile_bins.append(tmp_bins)
-        
-           
- 
+    
+    
     circle_groups = []
     for c1 in profile_bins[0]:
         group = [c1]
@@ -802,9 +810,17 @@ def find_circles(image_data, rad, sigma, low_threshold):
         idx += 1
         
     #should count consecutive spokes.
+    
+    #for spoke in range(1,10):
+        # start with the biggest found circle from inner
+        # spoke is resolved when:
+        #   circle size (get_rad()) is comparable between inner/middle/outer (max 2?)
+        #   AND the angle (get_angle()) is comparable (max 0.1 rad?)
+        # move to next spoke
+        #   angle increase? 
+    
     count_spokes = len(circle_groups)
-    
-    
+        
     fig, axs = plt.subplots(2,3)
     axs[0,0].imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
     axs[0,0].scatter(rad, rad)
@@ -838,7 +854,40 @@ def find_circles(image_data, rad, sigma, low_threshold):
     
     plt.show()
     
-    
     return count_spokes, fig
 
 
+def get_slice_position_error(image_data,x_center_px,y_center_px,axs,title):
+    """
+    Detect edges of input image
+    Using offsets determine the location of the wedges
+    Report difference between adjacent wedges
+    """
+    slice_offsets = [[58,0],[58,-4]]
+    searchrange = [10,3]
+    
+    edges = detect_edges(image_data)
+    edges_wedge1 = edges[y_center_px-slice_offsets[0][0]-searchrange[0]:y_center_px-slice_offsets[0][0],
+                         x_center_px-slice_offsets[0][1]-searchrange[1]:x_center_px-slice_offsets[0][1]]   
+    edges_wedge2 = edges[y_center_px-slice_offsets[1][0]-searchrange[0]:y_center_px-slice_offsets[1][0],
+                         x_center_px-slice_offsets[1][1]-searchrange[1]:x_center_px-slice_offsets[1][1]]  
+    avg_ind_edge1 = np.mean(np.argwhere(edges_wedge1)[:,0])
+    avg_ind_edge2 = np.mean(np.argwhere(edges_wedge2)[:,0])
+    slice_pos_error = avg_ind_edge2 - avg_ind_edge1
+    
+    # Show the resolution insert:
+    slice_pos_size = np.array([50,40])
+    slice_pos_coordoffsets = np.array([100,19])
+    
+    image_slice = image_data[y_center_px-slice_pos_coordoffsets[0]:y_center_px-slice_pos_coordoffsets[0]+slice_pos_size[0],
+                             x_center_px-slice_pos_coordoffsets[1]:x_center_px-slice_pos_coordoffsets[1]+slice_pos_size[1] ]
+    
+    y1 = y_center_px-slice_offsets[0][0]-searchrange[0]+avg_ind_edge1 - (y_center_px-slice_pos_coordoffsets[0])
+    y2 = y_center_px-slice_offsets[1][0]-searchrange[0]+avg_ind_edge2 - (y_center_px-slice_pos_coordoffsets[0])
+    axs.imshow(image_slice,cmap='gray')
+    axs.axhline(y=y1,xmin=0.25,xmax=0.5,color='r')
+    axs.axhline(y=y2,xmin=0.5,xmax=0.75,color='r')
+    axs.set_title(title)
+    axs.axis("off")
+        
+    return slice_pos_error

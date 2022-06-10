@@ -66,18 +66,16 @@ if __name__ == "__main__":
         #     MR_ACR_lib.geometry_xy(data, results, action)
         # elif name == 'resolution_t1':
         #     MR_ACR_lib.resolution_t1(data, results, action)
-        # elif name == 'slice_thickness':
-        #     MR_ACR_lib.slice_thickness(data, results, action)
         # elif name == 'resolution_t2':
         #     MR_ACR_lib.resolution_t2(data, results, action)
+        # elif name == 'slice_thickness':
+        #     MR_ACR_lib.slice_thickness(data, results, action)
+        # elif name == 'slice_position':
+        #     MR_ACR_lib.slice_position(data, results, action)
         # elif name == 'image_intensity_uniformity':
         #     MR_ACR_lib.image_intensity_uniformity(data, results, action)
         # elif name == 'percent_signal_ghosting':
         #     MR_ACR_lib.percent_signal_ghosting(data, results, action)
-        # elif name == 'slice_pos_t1':
-        #     MR_ACR_lib.slice_pos_t1(data, results, action)
-        # elif name == 'slice_pos_t2':
-        #     MR_ACR_lib.slice_pos_t2(data, results, action)
         elif name == 'low_contrast_object_detectability':
             MR_ACR_lib.low_contrast_object_detectability(data, results, action)
 
