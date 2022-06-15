@@ -265,7 +265,7 @@ def slice_thickness(data, results, action):
     
     #use slice 6 because slice 1 has too much sturctues in it
     image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    # x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
     x_center_px, y_center_px = find_center(image_data_center,params)
     #x_center_px, y_center_px = find_center(image_data_center,params)
     x_center_px = int(x_center_px)
@@ -378,7 +378,7 @@ def image_intensity_uniformity(data, results, action):
     
     #use slice 6 because slice 1 has too much sturctues in it
     image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
     x_center_px, y_center_px = find_center(image_data_center,params)
     x_center_px = int(x_center_px)
     y_center_px = int(y_center_px)
@@ -458,8 +458,8 @@ def percent_signal_ghosting(data, results, action):
     
     #use slice 6 because slice 1 has too much sturctues in it
     image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-    x_center_px, y_center_px, width, height = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:4]
-    #x_center_px, y_center_px = find_center(image_data_center,params)
+    # x_center_px, y_center_px, width, height = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:4]
+    x_center_px, y_center_px = find_center(image_data_center,params)
     width = int(width)
     height = int(height)
     x_center_px = int(x_center_px)
@@ -592,7 +592,7 @@ def low_contrast_object_detectability(data, results, action):
     
     #use slice 6 because slice 1 has too much sturctues in it
     image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    # x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
     x_center_px, y_center_px = find_center(image_data_center,params)
     x_center_px = int(x_center_px)
     y_center_px = int(y_center_px)
@@ -612,11 +612,11 @@ def low_contrast_object_detectability(data, results, action):
     t1_count_spokes = 0
     t1_fig, ((t1_ax1, t1_ax2), (t1_ax3, t1_ax4)) = plt.subplots(2,2)
     t1_axs = [t1_ax1, t1_ax2, t1_ax3, t1_ax4]
-    #for i in range(4):
+    
     for i in np.arange(3,-1,-1):
         image_data = np.transpose(t1_image_data[i,:,:]) # take slice-1 (0-index)
-        lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
-        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']), t1_axs[i])
+        lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']), x_res)
+        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['edge_sigma']), t1_axs[i], x_res, float(params['edge_low_threshold']), float(params['edge_high_threshold']), float(params['window_leveling']))
         t1_count_spokes += count_spokes 
         fig_to_save.savefig(fig_filenames[i], dpi= 300)
     t1_fig.savefig("T1_slices.png", dpi= 300)
@@ -626,14 +626,14 @@ def low_contrast_object_detectability(data, results, action):
     t2_axs = [t2_ax1, t2_ax2, t2_ax3, t2_ax4]
     for i in np.arange(3,-1,-1):
         image_data = np.transpose(t2_image_data[i,:,:]) # take slice-1 (0-index)
-        lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']))
-        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['canny_sigma']),float(params['canny_low_threshold']), t2_axs[i])
+        lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']),x_res)
+        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['edge_sigma']), t2_axs[i], x_res, float(params['edge_low_threshold']), float(params['edge_high_threshold']), float(params['window_leveling']))
         t2_count_spokes += count_spokes 
         fig_to_save.savefig(fig_filenames[i+4], dpi= 300)
     t2_fig.savefig("T2_slices.png", dpi= 300)
     
     results.addFloat("T1 number of counted spokes", t1_count_spokes)
-    results.addFloat("T2 number of counted spokes", t2_count_spokes)
+    # results.addFloat("T2 number of counted spokes", t2_count_spokes)
     results.addObject("T1 slices", "T1_slices.png")
     results.addObject("T2 slices", "T2_slices.png")
     results.addObject("T1 slice 1", fig_filenames[0])

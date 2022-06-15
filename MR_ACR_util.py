@@ -633,11 +633,11 @@ def get_mean_rect_ROI(image, rect):
     return mean_val
         
 
-def find_centre_lowcontrast(image_data,sigma,low_threshold):
+def find_centre_lowcontrast(image_data,sigma,low_threshold,pixel_spacing):
     edges = feature.canny(image_data,
         sigma=sigma,low_threshold=low_threshold,high_threshold=None)
 
-    searchradius = np.arange(42,47)
+    searchradius = np.arange(int(np.ceil(42/pixel_spacing)), int(np.ceil(47/pixel_spacing)))
     hough_res = hough_circle(edges, searchradius)
     accums, cx, cy, radius = hough_circle_peaks(hough_res, searchradius, total_num_peaks=1)
     
@@ -653,7 +653,7 @@ def create_circular_mask(image, rad):
     
     return mask
 
-def find_circles(image_data, rad, sigma, low_threshold, extra_ax):
+def find_circles(image_data, rad, sigma, extra_ax, pixel_spacing,l_thresh,h_thresh,w_level):
     #interpolate image
     x = np.arange(0,image_data.shape[1])
     y = np.arange(0,image_data.shape[0])
@@ -667,12 +667,14 @@ def find_circles(image_data, rad, sigma, low_threshold, extra_ax):
     mask = create_circular_mask(image_data_hr, rad)
     
     #do edge detection 
+    #1.5T low = 8 , high = 15
+    #3T low = 8 , high = 15
     edges = feature.canny(image_data_hr,
-        sigma=4,low_threshold=8,high_threshold=15,mask = mask)
+        sigma=sigma,low_threshold=l_thresh,high_threshold=h_thresh,mask = mask)
     edges = edges.astype('float64')
-
+    
     #radii for circular profiles we take
-    profile_radii = [52,102,152]
+    profile_radii = [int(np.round(52/pixel_spacing)),int(np.round(102/pixel_spacing)),int(np.round(152/pixel_spacing))]
     
     #make interpolation maps so we get data on the profile coordinates
     fedges = interp2d(ynew*4,xnew*4,edges,kind='linear')
@@ -703,7 +705,7 @@ def find_circles(image_data, rad, sigma, low_threshold, extra_ax):
             m_val = (np.mean(profile_data[circ][profile_edge_idxs[circ][-1]:-1])+np.mean(profile_data[circ][0:profile_edge_idxs[circ][0]]))/2
             tmp_bins.append(bin_circle(profile_edge_idxs[circ][-1], profile_edge_idxs[circ][0]+len(profile_edges[circ]), m_val, [rad,rad], len(profile_edges[circ])))
         #remove bins that are too large or too small
-        tmp_bins = [b for b in tmp_bins if (b.get_rad() > 2.5 and b.get_rad() < 14)]
+        tmp_bins = [b for b in tmp_bins if (b.get_rad() > 2.5/pixel_spacing and b.get_rad() < 14/pixel_spacing)]
         # Set the angles for the circelbins
         for cbin in tmp_bins:
             centercoords=[profile_coordinates[circ][0][int(cbin.get_center())],profile_coordinates[circ][1][int(cbin.get_center())]]
@@ -716,11 +718,11 @@ def find_circles(image_data, rad, sigma, low_threshold, extra_ax):
     for c1 in profile_bins[0]:
         spoke = [c1]
         for c2 in profile_bins[1]:
-            if (np.abs(c2.get_deg()-c1.get_deg()) < 5 and c2.get_rad() - c1.get_rad() < 3):
+            if (np.abs(c2.get_deg()-c1.get_deg()) < 5 and c2.get_rad() - c1.get_rad() < 3/pixel_spacing):
                 spoke.append(c2)
                 break
         for c3 in profile_bins[2]:
-            if (np.abs(c3.get_deg()-c1.get_deg()) < 5 and c3.get_rad() - c1.get_rad() < 3):
+            if (np.abs(c3.get_deg()-c1.get_deg()) < 5 and c3.get_rad() - c1.get_rad() < 3/pixel_spacing):
                 spoke.append(c3)
                 break
         spokes.append(spoke)
@@ -762,7 +764,7 @@ def find_circles(image_data, rad, sigma, low_threshold, extra_ax):
         
         
     fig, axs = plt.subplots(2,3)
-    axs[0,0].imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
+    axs[0,0].imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
     axs[0,0].scatter(rad, rad)
     for circ in range(3):
         axs[0,0].scatter(profile_coordinates[circ][0],profile_coordinates[circ][1],s=1)
@@ -776,7 +778,7 @@ def find_circles(image_data, rad, sigma, low_threshold, extra_ax):
     axs[0,1].set_title('Edges')
     axs[0,1].axis('off')
     
-    axs[0,2].imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
+    axs[0,2].imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
     for circ in circles:    
         axs[0,2].add_patch(circ)
     axs[0,2].set_title('Found ' + str(count_spokes) + ' consecutive spokes')
@@ -811,7 +813,7 @@ def find_circles(image_data, rad, sigma, low_threshold, extra_ax):
             circles2.append(circ)
         idx += 1
 
-    extra_ax.imshow(image_data_hr,vmin = np.max(image_data)/1.2, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
+    extra_ax.imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
     for circ in circles2:    
         extra_ax.add_patch(circ)
     extra_ax.set_title('Found ' + str(count_spokes) + ' consecutive spokes')
