@@ -18,10 +18,11 @@ from skimage.feature import canny
 from skimage.transform import hough_circle, hough_circle_peaks
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse,Circle
+from matplotlib.patches import Ellipse,Circle, Rectangle,Polygon
 from scipy.signal import find_peaks
 from scipy.interpolate import interp2d
 import seaborn as sns
+import cv2
 
 class bin_circle:
     def __init__(self, left, right, mean_val,origin,size):
@@ -293,166 +294,104 @@ def retrieve_ellipse_parameters(image_data, mask_air_bubble=True):
             # TODO else raise
     return ellipse
 
-def find_xy_diameter(image_data_xy,pixel_spacing, acqdate, params):
+def find_center(image_data,params):
+    """
+    alternative for retrieve_ellipse_parameters
+    """
+    edges = detect_edges(image_data, int(params['canny_sigma']), int(params['canny_low_threshold']))
+    contours, hierarchy = cv2.findContours(edges.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    c = max(contours, key = cv2.contourArea) # select the biggest contour
+    (center_x_pix,center_y_pix),radius_pix = cv2.minEnclosingCircle(c)
+    
+    return center_x_pix, center_y_pix
+    
+    
+def find_xy_diameter(image_data_xy,pixel_spacing, params):
    """
+   Start with edge detection
+   Then findContours on the edges
+   Select the largest contour and extract diameter
+   Create a plot
    """
-   [x_center_px,
-    y_center_px,
-    x_axis_length_px,
-    y_axis_length_px,
-    phi] = retrieve_ellipse_parameters(image_data_xy, mask_air_bubble=True)
+   edges_xy = detect_edges(image_data_xy, int(params['canny_sigma']), int(params['canny_low_threshold'])) #get edges from the image
+   contours, hierarchy = cv2.findContours(edges_xy.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+   c = max(contours, key = cv2.contourArea) # select the biggest contour
    
-   x_diameter_mm = x_axis_length_px * 2 * pixel_spacing
-   y_diameter_mm = y_axis_length_px * 2 * pixel_spacing
+   (center_x_pix,center_y_pix),radius_pix = cv2.minEnclosingCircle(c)
+   xy_diameter_mm = 2 * radius_pix * pixel_spacing
    
+   fig,axs = plt.subplots()
    geometry_xy_filename = "geometry_xy_result.png"
+   axs.imshow(image_data_xy,cmap='gray')
+   axs.add_patch(Circle([center_x_pix,center_y_pix],radius_pix,fc='none',lw=1,ec='r')) #use Polygon, because order of boxPoint results not always suited for Rectangle
+   axs.axis('off')
    
-   plot_ellipse_on_image(
-       ellipse=[x_axis_length_px, y_axis_length_px, x_center_px, y_center_px, phi],
-       acquisition=image_data_xy,
-       title=f"XY Diameter, fitted ellipse, acq date: {acqdate}",
-       draw_axes=True,
-       save_as=geometry_xy_filename)
+   # add a line with diameter
+   p1 = np.int0([center_x_pix-radius_pix,center_y_pix])
+   p2 = np.int0([center_x_pix+radius_pix,center_y_pix])
+   xvals = [p1[0],p2[0]]
+   yvals = [p1[1],p2[1]]
+   axs.plot(xvals,yvals,'r')
    
-   return x_diameter_mm, y_diameter_mm,x_center_px,y_center_px,geometry_xy_filename  
+   fig.savefig(geometry_xy_filename,dpi=300)
+   return xy_diameter_mm, center_x_pix, center_y_pix, geometry_xy_filename  
     
 def find_z_length(image_data_z,pixel_spacing,acqdate,params):
     """
+    Start with edge detection
+    Then findContours on the edges
+    Select the largest contour and extract z_length
+    Create a plot
     """
-    edges_z = detect_edges(image_data_z, int(params['canny_sigma']), int(params['canny_low_threshold']))
+    edges_z = detect_edges(image_data_z, 1, int(params['canny_low_threshold'])) #get edges from the image
     
-    image_filtered = image_data_z.copy()
-    # filter low signals out of the image
-    image_filtered[image_filtered < image_filtered.max() / 4] = 0
+    # from the edges, extract the contours
+    contours, hierarchy = cv2.findContours(edges_z.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    c = max(contours, key = cv2.contourArea) # select the biggest contour
     
-    # the most top right pixel with a value is the approximate top right of the phantom
-    phantom_top_right_column = np.where(np.sum(edges_z, axis=0) > 0)[0][-1]
-    phantom_top_right_row = np.where(image_filtered[:,phantom_top_right_column] > 0)[0][0]
-    phantom_top_right_xy = np.array([phantom_top_right_column, phantom_top_right_row])
+    #sometimes the found edges of the phantom are not entirely closed
+    #switch to contour arcLength
+    if cv2.contourArea(c) < 500.0:
+        c = max(contours, key=lambda x: cv2.arcLength(x,True))
+        
+    # find the minimum area rectangle around the largest contour 
+    rect = cv2.minAreaRect(c) #output is ((centerX,centerY), (width, heigth), rotationangle)
     
-    phantom_bottom_right_row = np.where(np.sum(edges_z, axis=1) > 0)[0][-1]
-    phantom_bottom_right_column = np.where(image_filtered[phantom_bottom_right_row] > 0)[0][-1]
-    phantom_bottom_right_xy = np.array([phantom_bottom_right_column, phantom_bottom_right_row])
+    # z-length
+    # width and height could be switched (rotated minAreaRect)
+    # z is always smaller than xy (148 vs 190)
+    z_length_mm = np.min(rect[1])*pixel_spacing
     
-    # the specified width of the phantom is 190mm, meaning the square root of 190**2 + side length**2 is the length of the diagonal
-    phantom_right_side_length_px = np.linalg.norm(phantom_top_right_xy - phantom_bottom_right_xy)
-    phantom_top_side_specified_width_px = 190 / pixel_spacing
-    # Calculate (approximate) slope
-    phantom_approximate_slope = (phantom_top_right_xy[0] - phantom_bottom_right_xy[0]) / (phantom_bottom_right_xy[1] - phantom_top_right_xy[1])
+    # check the heigth, 
+    # Should be ~190mm, use 15 mm as cutoff
+    xy_diameter = np.max(rect[1])*pixel_spacing
+    if xy_diameter < 175 or xy_diameter > 205:
+        print('WARNING: the xy_diameter deviates > 15 mm. Z-length of the phantom might be inaccurate')
     
-    # if the phantom was perpendicular resp. parallel to the x/y axes we can simply subtract the pixels for length and width
-    # but because we have a (approximate) slope it is possible to correct
-    x_delta = phantom_top_side_specified_width_px / 2
-    y_delta = phantom_right_side_length_px / 2
-    phantom_center_approximate_xy = np.array(
-        [
-            phantom_bottom_right_xy[0]
-            - x_delta
-            + (x_delta * phantom_approximate_slope),
-            phantom_bottom_right_xy[1]
-            - y_delta
-            - (x_delta * phantom_approximate_slope),
-        ]
-    ).astype("int")
+    # plot
+    box = np.int0(cv2.boxPoints(rect)) #convert to xy coords
     
-    pixel_range_for_cropping = round(45 / pixel_spacing)
-    edges_z_crop = edges_z.copy()
-    # crop vertically, set everything out side center +- 45 mm to 0
-    edges_z_crop[:, : phantom_center_approximate_xy[0] - pixel_range_for_cropping] = 0
-    edges_z_crop[:, phantom_center_approximate_xy[0] + pixel_range_for_cropping :] = 0
-
-    # crop horizontally, set everything INSIDE center +- 45 mm to 0. This will make the resulting sinogram less noisy
-    edges_z_crop[
-        phantom_center_approximate_xy[1] - pixel_range_for_cropping : phantom_center_approximate_xy[1] + pixel_range_for_cropping,:] = 0
-    
-    sinogram = radon_transform(edges_z_crop)
-    
-    # find the coordinates for the two highest peaks
-    # mask the sinogram so we only look at parallel, closest to perpendicular to columns
-    sinogram_masked = sinogram.copy()
-    sinogram_masked[:, :int(sinogram.shape[0]*0.4)] = 0
-    sinogram_masked[:, int(sinogram.shape[0]*0.6):] = 0
-
-    sino_max_per_row = np.sort(sinogram_masked)[
-        :, sinogram.shape[0]-1
-    ]  # this returns the final column (highest value per row) of the sorted rows of the sinogram
-    
-    # peak finder
-    # find the column index for the first peak over 90% of the max value
-    # this works well as we expect two high peaks in the data that are close to each other in value
-    # a peak is where the following value is lower than the current
-    threshold = 0.75
-    peak_first = [
-        (index, value)
-        for index, value in enumerate(sino_max_per_row[:-1])
-        if sino_max_per_row[index + 1] < value
-        if value > np.max(sino_max_per_row) * threshold
-    ][0]
-
-    # find the column index for the last peak over 90% of the max value
-    # same as previous, but in reverse order
-    peak_last = [
-        (len(sino_max_per_row) - index - 1, value)
-        for index, value in enumerate(np.flip(sino_max_per_row)[:-1])
-        if np.flip(sino_max_per_row)[index + 1] < value
-        if value > np.max(sino_max_per_row) * threshold
-    ][0]
-
-    # take the peak values to match with the sinogram
-    peak_1_value = peak_first[1]
-    peak_2_value = peak_last[1]
-
-    # this  yields two arrays where the first is the Y coordinate and the second is the X coordinate
-    peak_1_coords = np.where(sinogram_masked == peak_1_value)
-    peak_2_coords = np.where(sinogram_masked == peak_2_value)
-
-    # rearrange into a format that is actually usable, interpolate the peaks
-    peak_1_coords = np.array(
-        [peak_1_coords[1][0],
-         peak_1_coords[0][0] + interpolation_peak_offset(sino_max_per_row, peak_1_coords[0][0]),])
-    peak_2_coords = np.array(
-        [peak_2_coords[1][0],
-         peak_2_coords[0][0] + interpolation_peak_offset(sino_max_per_row, peak_2_coords[0][0]),])
-
-    # distance to center of sinogram is distance of line to center image
-    sinogram_center = np.array([sinogram.shape[0] // 2, sinogram.shape[0] // 2])
-    peak_1_center_distance_pixels = np.linalg.norm(sinogram_center - peak_1_coords)
-    peak_2_center_distance_pixels = np.linalg.norm(sinogram_center - peak_2_coords)
-
-    # length of phantom in mm is both lengths added and corrected for pixel spacing
-    z_length_mm = (peak_1_center_distance_pixels + peak_2_center_distance_pixels) * pixel_spacing
-    
-    rotation_1 = peak_1_coords[0] * (180 / sinogram_masked.shape[0]) - 90
-    rotation_2 = peak_2_coords[0] * (180 / sinogram_masked.shape[0]) - 90
-    rotation = np.average([rotation_1, rotation_2])
-
-    # for plotting we need the tangent of the (rotation converted to radians)
-    slope = np.tan(np.radians(rotation))
-    # save result objects to directory relative to working directory
+    fig,axs = plt.subplots()
     z_result_image_filename = "geometry_z_result.png"
-
-    # use negative slope because of matplotlib stuffs
-    # coordinates obtained for the peaks must be subtracted from the max index (i.e. shape) for plotting
-    # TODO document all extra lines plotted
-    plot_edges_on_image(
-        mask_to_coordinates(edges_z),
-        image_data_z,
-        title=f"Z Length, Edges & Top/bottom/center highlighted, acq date: {acqdate}",
-        axlines=[{"xy1": (sinogram_center[0],float(sinogram.shape[0] - peak_1_coords[1]),),
-                  "slope": -slope,
-                  "color": "b",
-                  "linewidth": 0.75,},
-                 {"xy1": (sinogram_center[0],float(sinogram.shape[0] - peak_2_coords[1]),),
-                  "slope": -slope,
-                  "color": "b",
-                  "linewidth": 0.75,},],
-        axvlines=[{"x": float(phantom_center_approximate_xy[0]),
-                   "color": "y",
-                   "linewidth": 0.75,},],
-        axhlines=[{"y": float(phantom_center_approximate_xy[1]),
-                   "color": "g",
-                   "linewidth": 0.75,},],
-        save_as=z_result_image_filename)
+    axs.imshow(image_data_z,cmap='gray')
+    axs.add_patch(Polygon(box,fc='none',lw=1,ec='r')) #use Polygon, because order of boxPoint results not always suited for Rectangle
+    axs.axis('off')
+    
+    # add lines for width and height
+    # boxPoints returns a list of xy coordinates, starting with the 'lowest' point in the rectangle,
+    # then proceeding clockwise
+    p1 = np.int0((box[0]+box[1])/2)
+    p2 = np.int0((box[2]+box[3])/2)
+    xvals = [p1[0],p2[0]]
+    yvals = [p1[1],p2[1]]
+    axs.plot(xvals,yvals,'r')
+    
+    p3 = np.int0((box[1]+box[2])/2)
+    p4 = np.int0((box[3]+box[0])/2)
+    xvals = [p3[0],p4[0]]
+    yvals = [p3[1],p4[1]]
+    axs.plot(xvals,yvals,'r')
+    fig.savefig(z_result_image_filename,dpi=300)
     
     return z_length_mm,z_result_image_filename
     
@@ -473,7 +412,6 @@ def check_resolution_peaks1(image_data, res_locs, mean_bg, bg_factor):
     # Horizontal 1.1
     x_range = 12 #pixels
     y_range = 12 #pixels
-    
     for y in range(y_range):
         x_signal = image_data[ res_locs[0,1]+y,
                                res_locs[0,0]:res_locs[0,0]+x_range]
@@ -883,33 +821,33 @@ def find_circles(image_data, rad, sigma, low_threshold, extra_ax):
     return count_spokes, fig
 
 
-def get_slice_position_error(image_data,x_center_px,y_center_px,axs,title):
+def get_slice_position_error(image_data,x_center_px,y_center_px,axs,title,pixel_spacing):
     """
     Detect edges of input image
     Using offsets determine the location of the wedges
     Report difference between adjacent wedges
     """
-    slice_offsets = [[58,0],[58,-4]]
-    searchrange = [10,3]
+    slice_offsets = np.array([[58,0],[58,-4]]) / pixel_spacing
+    searchrange = np.array([10,3]) / pixel_spacing
     
     edges = detect_edges(image_data)
-    edges_wedge1 = edges[y_center_px-slice_offsets[0][0]-searchrange[0]:y_center_px-slice_offsets[0][0],
-                         x_center_px-slice_offsets[0][1]-searchrange[1]:x_center_px-slice_offsets[0][1]]   
-    edges_wedge2 = edges[y_center_px-slice_offsets[1][0]-searchrange[0]:y_center_px-slice_offsets[1][0],
-                         x_center_px-slice_offsets[1][1]-searchrange[1]:x_center_px-slice_offsets[1][1]]  
+    edges_wedge1 = edges[np.int0(y_center_px-slice_offsets[0][0]-searchrange[0]):np.int0(y_center_px-slice_offsets[0][0]),
+                         np.int0(x_center_px-slice_offsets[0][1]-searchrange[1]):np.int0(x_center_px-slice_offsets[0][1])]   
+    edges_wedge2 = edges[np.int0(y_center_px-slice_offsets[1][0]-searchrange[0]):np.int0(y_center_px-slice_offsets[1][0]),
+                         np.int0(x_center_px-slice_offsets[1][1]-searchrange[1]):np.int0(x_center_px-slice_offsets[1][1])]  
     avg_ind_edge1 = np.mean(np.argwhere(edges_wedge1)[:,0])
     avg_ind_edge2 = np.mean(np.argwhere(edges_wedge2)[:,0])
     slice_pos_error = avg_ind_edge2 - avg_ind_edge1
     
     # Show the resolution insert:
-    slice_pos_size = np.array([50,40])
-    slice_pos_coordoffsets = np.array([100,19])
+    slice_pos_size = np.array([50,40]) / pixel_spacing
+    slice_pos_coordoffsets = np.array([100,19]) / pixel_spacing
     
-    image_slice = image_data[y_center_px-slice_pos_coordoffsets[0]:y_center_px-slice_pos_coordoffsets[0]+slice_pos_size[0],
-                             x_center_px-slice_pos_coordoffsets[1]:x_center_px-slice_pos_coordoffsets[1]+slice_pos_size[1] ]
+    image_slice = image_data[np.int0(y_center_px-slice_pos_coordoffsets[0]):np.int0(y_center_px-slice_pos_coordoffsets[0]+slice_pos_size[0]),
+                             np.int0(x_center_px-slice_pos_coordoffsets[1]):np.int0(x_center_px-slice_pos_coordoffsets[1]+slice_pos_size[1]) ]
     
-    y1 = y_center_px-slice_offsets[0][0]-searchrange[0]+avg_ind_edge1 - (y_center_px-slice_pos_coordoffsets[0])
-    y2 = y_center_px-slice_offsets[1][0]-searchrange[0]+avg_ind_edge2 - (y_center_px-slice_pos_coordoffsets[0])
+    y1 = np.int0(y_center_px-slice_offsets[0][0]-searchrange[0]+avg_ind_edge1 - (y_center_px-slice_pos_coordoffsets[0]))
+    y2 = np.int0(y_center_px-slice_offsets[1][0]-searchrange[0]+avg_ind_edge2 - (y_center_px-slice_pos_coordoffsets[0]))
     axs.imshow(image_slice,cmap='gray')
     axs.axhline(y=y1,xmin=0.25,xmax=0.5,color='r')
     axs.axhline(y=y2,xmin=0.5,xmax=0.75,color='r')

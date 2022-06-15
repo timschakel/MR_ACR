@@ -22,7 +22,9 @@
       	"SeriesDescription": "t T1 bw436"
       	},
       "params": {
-      	"slicenumber": "6"
+      	"slicenumber": "6",
+      	"canny_sigma": "3",
+        "canny_low_threshold": "200"
       }
     },
     "resolution": {

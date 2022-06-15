@@ -15,7 +15,7 @@ from MR_ACR_util import (find_z_length,find_xy_diameter,retrieve_ellipse_paramet
                          check_resolution_peaks1,check_resolution_peaks2,find_fwhm,
                          detect_edges,mask_to_coordinates,find_min_and_max_intensity_region,
                          get_mean_circle_ROI,get_mean_rect_ROI, find_centre_lowcontrast,
-                         find_circles,get_slice_position_error)
+                         find_circles,get_slice_position_error,find_center)
 
 ### Helper functions
 def getValue(ds, label):
@@ -102,6 +102,7 @@ def geometry_z(data,results,action):
     Determine the  length (z) of the phantom
     Use the localizer (survey) 
     """
+    print(">>> 1. Geometric Accuracy: Z-length <<<")
     # Select the localizer series and determine z length
     loc_filter = {item:filters.get(item)for item in ["SeriesDescription"]}
     sag_filter = {item:filters.get(item)for item in ["0x2001,100b"]}
@@ -124,39 +125,28 @@ def geometry_xy(data,results,action):
     Determine the  diameter (xy) of the phantom
     Use the T1 scan 
     """
+    print(">>> 1. Geometric Accuracy: XY-diameter <<<")
     # Select the localizer series and determine z length
     series_filter = {item:filters.get(item)for item in ["SeriesDescription"]}
     data_series = applyFilters(data.series_filelist, series_filter)
     dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series[0],headers_only=False)
     image_data_xy = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
 
-    x_diameter_mm, y_diameter_mm,x_center_px,y_center_px,geometry_xy_filename = find_xy_diameter(image_data_xy, float(dcmInfile.info.PixelSpacing[0]), dcmInfile.info.AcquisitionDate, params)
+    xy_diameter_mm, x_center_px,y_center_px,geometry_xy_filename = find_xy_diameter(image_data_xy, float(dcmInfile.info.PixelSpacing[0]), params)
     
     # Collect results
-    results.addFloat("Geometry X diameter", x_diameter_mm)
-    results.addFloat("Geometry Y diameter", y_diameter_mm)
-    results.addFloat("Geometry X center pix", x_center_px)
-    results.addFloat("Geometry Y center pix", y_center_px)
+    results.addFloat("Geometry XY diameter", xy_diameter_mm)
     results.addObject("Geometry XY diameter", geometry_xy_filename)
 
 def resolution(data,results,action):
     """
-    4. Slice Position Accuracy
-    Determine the slice position accuracy
+    2. High Contrast Spatial Resolution
+    Determine the high contrast resolution
     """
+    print(">>> 2. High Contrast Spatial Resolution T1 <<<")
     params = action["params"]
     filters = action["filters"]
     savename = "Resolution.png"
-    
-    res_coordoffsets = np.array([
-        [-24,30],
-        [ -7,37],
-        [  0,30],
-        [ 16,37],
-        [ 24,31],
-        [ 39,37],]) #check and maybe correct?
-    
-    bg_coordoffsets = [22,37] #location wrt center
     
     """
     Use the T1 scan 
@@ -166,24 +156,35 @@ def resolution(data,results,action):
     dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
     image_data_t1 = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
     image_data_t1_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-     
-    # location of the resolution insert is defined wrt center of the phantom
-    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_t1_center, mask_air_bubble=True)[0:2]
-    res_locs = np.zeros([6,2],dtype=int)
-    res_locs[:,0] = res_coordoffsets[:,0] + int(x_center_px)
-    res_locs[:,1] = res_coordoffsets[:,1] + int(y_center_px)
     
-    bg = image_data_t1[bg_coordoffsets[0]+int(y_center_px):bg_coordoffsets[0]+int(y_center_px)+15,
-                    bg_coordoffsets[1]+int(x_center_px):bg_coordoffsets[1]+int(x_center_px)+15] # 15x15 size
+    #check and maybe correct? THIS WAS PIXELS ON THE 1.0 MM GRID: 3.0T DATA APPARANTLY USES 0.8 MM GRIDS, SO ALL VOXEL OFFSETS ARE INCORRECT
+    res_coordoffsets = np.array([
+        [-24,30],
+        [ -7,37],
+        [  0,30],
+        [ 16,37],
+        [ 24,31],
+        [ 39,37],]) / dcmInfile.info.PixelSpacing
+    bg_coordoffsets = np.array([22,37]) / dcmInfile.info.PixelSpacing #location wrt center
+    
+    # location of the resolution insert is defined wrt center of the phantom
+    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_t1_center, mask_air_bubble=True)[0:2]
+    x_center_px, y_center_px = find_center(image_data_t1_center,params)
+    res_locs = np.zeros([6,2],dtype=int)
+    res_locs[:,0] = np.int0(res_coordoffsets[:,0] + x_center_px)
+    res_locs[:,1] = np.int0(res_coordoffsets[:,1] + y_center_px)
+    
+    bg = image_data_t1[np.int0(bg_coordoffsets[0]+y_center_px):np.int0(bg_coordoffsets[0]+y_center_px)+15,
+                       np.int0(bg_coordoffsets[1]+x_center_px):np.int0(bg_coordoffsets[1]+x_center_px)+15] # 15x15 size
     mean_bg = np.mean(bg)
     
     resolution_resolved1 = check_resolution_peaks1(image_data_t1, res_locs, mean_bg,params['bg_factor_t1'])
     #resolution_resolved2 = check_resolution_peaks2(image_data, res_locs)
     
-    res_full_coordoffsets = np.array([13,-63]) # wrt center of phantom
-    res_full_size = np.array([50,125])
-    image_res = image_data_t1[res_full_coordoffsets[0]+int(y_center_px):res_full_coordoffsets[0]+int(y_center_px)+res_full_size[0],
-                              res_full_coordoffsets[1]+int(x_center_px):res_full_coordoffsets[1]+int(x_center_px)+res_full_size[1] ]
+    res_full_coordoffsets = np.array([13,-63]) / dcmInfile.info.PixelSpacing# wrt center of phantom
+    res_full_size = np.array([50,125]) / dcmInfile.info.PixelSpacing
+    image_res = image_data_t1[np.int0(res_full_coordoffsets[0]+y_center_px):np.int0(res_full_coordoffsets[0]+y_center_px)+np.int0(res_full_size[0]),
+                              np.int0(res_full_coordoffsets[1]+x_center_px):np.int0(res_full_coordoffsets[1]+x_center_px)+np.int0(res_full_size[1]) ]
 
     fig,axs = plt.subplots(1,2)
     axs[0].imshow(image_res,cmap='gray')
@@ -201,6 +202,7 @@ def resolution(data,results,action):
     """
     Use the T2 scan 
     """
+    print(">>> 2. High Contrast Spatial Resolution T2 <<<")
     t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
     type_filter = {item:filters.get(item)for item in ["ImageType"]}
     echo_filter = {item:filters.get(item)for item in ["EchoNumbers"]}
@@ -212,20 +214,21 @@ def resolution(data,results,action):
     image_data_t2 = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
     image_data_t2_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
     
-    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_t2_center, mask_air_bubble=True)[0:2]
+    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_t2_center, mask_air_bubble=True)[0:2]
+    x_center_px, y_center_px = find_center(image_data_t2_center,params)
     res_locs = np.zeros([6,2],dtype=int)
-    res_locs[:,0] = res_coordoffsets[:,0] + int(x_center_px)
-    res_locs[:,1] = res_coordoffsets[:,1] + int(y_center_px)
+    res_locs[:,0] = np.int0(res_coordoffsets[:,0] + x_center_px)
+    res_locs[:,1] = np.int0(res_coordoffsets[:,1] + y_center_px)
     
-    bg = image_data_t2[bg_coordoffsets[0]+int(y_center_px):bg_coordoffsets[0]+int(y_center_px)+15,
-                       bg_coordoffsets[1]+int(x_center_px):bg_coordoffsets[1]+int(x_center_px)+15] # 15x15 size
+    bg = image_data_t2[np.int0(bg_coordoffsets[0]+y_center_px):np.int0(bg_coordoffsets[0]+y_center_px)+15,
+                       np.int0(bg_coordoffsets[1]+x_center_px):np.int0(bg_coordoffsets[1]+x_center_px)+15] # 15x15 size
     mean_bg = np.mean(bg)
     
     resolution_resolved1 = check_resolution_peaks1(image_data_t2, res_locs, mean_bg,params['bg_factor_t2'])
     #resolution_resolved2 = check_resolution_peaks2(image_data, res_locs)
     
-    image_res = image_data_t2[res_full_coordoffsets[0]+int(y_center_px):res_full_coordoffsets[0]+int(y_center_px)+res_full_size[0],
-                              res_full_coordoffsets[1]+int(x_center_px):res_full_coordoffsets[1]+int(x_center_px)+res_full_size[1] ]
+    image_res = image_data_t2[np.int0(res_full_coordoffsets[0]+y_center_px):np.int0(res_full_coordoffsets[0]+y_center_px)+np.int0(res_full_size[0]),
+                              np.int0(res_full_coordoffsets[1]+x_center_px):np.int0(res_full_coordoffsets[1]+x_center_px)+np.int0(res_full_size[1]) ]
 
     axs[1].imshow(image_res,cmap='gray')
     axs[1].set_title("Resolution T2")
@@ -251,6 +254,7 @@ def slice_thickness(data, results, action):
     Determine the slice thickness using the ramps in slice 1
     Use the T1 & T2 scan 
     """
+    print(">>> 3. Slice Thickness Accuracy T1 <<<")
     t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
     #load T1
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
@@ -261,11 +265,14 @@ def slice_thickness(data, results, action):
     
     #use slice 6 because slice 1 has too much sturctues in it
     image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    x_center_px, y_center_px = find_center(image_data_center,params)
+    #x_center_px, y_center_px = find_center(image_data_center,params)
     x_center_px = int(x_center_px)
     y_center_px = int(y_center_px)
     
     #load T2
+    print(">>> 3. Slice Thickness Accuracy T2 <<<")
     t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
     type_filter = {item:filters.get(item)for item in ["ImageType"]}
     echo_filter = {item:filters.get(item)for item in ["EchoNumbers"]}
@@ -360,6 +367,7 @@ def image_intensity_uniformity(data, results, action):
     5. Image Intensity Uniformity
     Draw some ROI's and determine the highest and lowest signal intensity areas
     """
+    print(">>> 5. Image Intensity Uniformity T1 <<<")
     #load T1
     t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
@@ -370,11 +378,13 @@ def image_intensity_uniformity(data, results, action):
     
     #use slice 6 because slice 1 has too much sturctues in it
     image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    x_center_px, y_center_px = find_center(image_data_center,params)
     x_center_px = int(x_center_px)
     y_center_px = int(y_center_px)
     
     #load T2
+    print(">>> 5. Image Intensity Uniformity T2 <<<")
     t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
     type_filter = {item:filters.get(item)for item in ["ImageType"]}
     echo_filter = {item:filters.get(item)for item in ["EchoNumbers"]}
@@ -435,10 +445,11 @@ def percent_signal_ghosting(data, results, action):
     filters = action["filters"]
     fig_filename = "percent_signal_ghosting_test.png"
     """
-    5. Percent Signal Ghosting
+    6. Percent Signal Ghosting
     Draw some ROI's inside and outside of the phantom
     """
     #load T1
+    print(">>> 6. Percent Signal Ghosting <<<")
     t1_series_filter = {item:filters.get(item)for item in ["SeriesDescription"]}
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
     dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
@@ -448,6 +459,7 @@ def percent_signal_ghosting(data, results, action):
     #use slice 6 because slice 1 has too much sturctues in it
     image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
     x_center_px, y_center_px, width, height = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:4]
+    #x_center_px, y_center_px = find_center(image_data_center,params)
     width = int(width)
     height = int(height)
     x_center_px = int(x_center_px)
@@ -497,6 +509,7 @@ def slice_position(data,results,action):
     Determine the slice position accuracy
     Use the T1 scan 
     """
+    print(">>> 4. Slice Position Accuracy T1 <<<")
     t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
     dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
@@ -506,7 +519,8 @@ def slice_position(data,results,action):
       
     # offsets for the Slice Position insert
     # location of the Slice Position insert is defined wrt center of the phantom:
-    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_t1_center, mask_air_bubble=True)[0:2]
+    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_t1_center, mask_air_bubble=True)[0:2]
+    x_center_px, y_center_px = find_center(image_data_t1_center,params)
     x_center_px = int(x_center_px) #vertical in  plots
     y_center_px = int(y_center_px) #horizontal in plots
     
@@ -515,12 +529,13 @@ def slice_position(data,results,action):
     
     fig, axs = plt.subplots(2,2)
     fig.suptitle('Slice Position errors')
-    slice_pos_error_bot_t1 = get_slice_position_error(image_data_t1_bot,x_center_px,y_center_px,axs[0,0],title_bottom_t1)
-    slice_pos_error_top_t1 = get_slice_position_error(image_data_t1_top,x_center_px,y_center_px,axs[1,0],title_top_t1)
+    slice_pos_error_bot_t1 = get_slice_position_error(image_data_t1_bot,x_center_px,y_center_px,axs[0,0],title_bottom_t1,dcmInfile.info.PixelSpacing[0])
+    slice_pos_error_top_t1 = get_slice_position_error(image_data_t1_top,x_center_px,y_center_px,axs[1,0],title_top_t1,dcmInfile.info.PixelSpacing[0])
     
     """
     Use the T2 scan 
     """
+    print(">>> 4. Slice Position Accuracy T2 <<<")
     t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
     type_filter = {item:filters.get(item)for item in ["ImageType"]}
     echo_filter = {item:filters.get(item)for item in ["EchoNumbers"]}
@@ -533,15 +548,16 @@ def slice_position(data,results,action):
     image_data_t2_bot = np.transpose(pixeldataIn[int(params['slicenumberbot'])-1,:,:]) # take slice-1 (0-index)
     image_data_t2_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
     
-    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_t2_center, mask_air_bubble=True)[0:2]
+    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_t2_center, mask_air_bubble=True)[0:2]
+    x_center_px, y_center_px = find_center(image_data_t2_center,params)
     x_center_px = int(x_center_px) #vertical in  plots
     y_center_px = int(y_center_px) #horizontal in plots
     
     title_bottom_t2 = "T2 bottom"
     title_top_t2 = "T2 top"
     
-    slice_pos_error_bot_t2 = get_slice_position_error(image_data_t2_bot,x_center_px,y_center_px,axs[0,1],title_bottom_t2)
-    slice_pos_error_top_t2 = get_slice_position_error(image_data_t2_top,x_center_px,y_center_px,axs[1,1],title_top_t2)
+    slice_pos_error_bot_t2 = get_slice_position_error(image_data_t2_bot,x_center_px,y_center_px,axs[0,1],title_bottom_t2,dcmInfile.info.PixelSpacing[0])
+    slice_pos_error_top_t2 = get_slice_position_error(image_data_t2_top,x_center_px,y_center_px,axs[1,1],title_top_t2,dcmInfile.info.PixelSpacing[0])
     
     # Collect results
     fig.savefig(savename, dpi=300)
@@ -566,6 +582,7 @@ def low_contrast_object_detectability(data, results, action):
     7. Low Contrast Object Detectability
     """
     #load T1
+    print(">>> 7. Low Contrast Object Detectability T1 <<<")
     t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
     dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
@@ -575,11 +592,13 @@ def low_contrast_object_detectability(data, results, action):
     
     #use slice 6 because slice 1 has too much sturctues in it
     image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    x_center_px, y_center_px = find_center(image_data_center,params)
     x_center_px = int(x_center_px)
     y_center_px = int(y_center_px)
     
     #load T2
+    print(">>> 7. Low Contrast Object Detectability T2 <<<")
     t2_series_filter = {"SeriesDescription":filters.get(item)for item in ["t2_series_description"]}
     type_filter = {item:filters.get(item)for item in ["ImageType"]}
     echo_filter = {item:filters.get(item)for item in ["EchoNumbers"]}
