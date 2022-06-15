@@ -1,0 +1,353 @@
+{
+    "comments": {
+        "author": "Tim Schakel & Peter Stijnman, UMCU",
+        "creator": "Manual",
+        "description": "ACR phantom test and analysis"
+    },
+    "metaformat": "20220525",
+    "results": {
+        "AcquisitionDateTime": {
+            "constraint_period": 180,
+            "description": "date and time of acquisition",
+            "display_level": 2,
+            "display_name": "DateTime",
+            "units": ""
+        },
+        "Geometry Z length": {
+            "description": "Geometry Z length",
+            "display_level": 2,
+            "display_name": "Geometry Z length",
+            "units": "mm",
+            "constraint_minlowhighmax": [
+                145,
+                146,
+                150,
+                151
+            ]
+        },
+        "Geometry XY diameter": {
+            "description": "Geometry XY diameter",
+            "display_level": 2,
+            "display_name": "Geometry XY diameter",
+            "units": "mm",
+            "constraint_minlowhighmax": [
+                187,
+                188,
+                192,
+                193
+            ]
+        },
+        "Resolution T1 HOR 1.1 passed": {
+            "description": "Horizontal resolution",
+            "display_level": 2,
+            "display_name": "Resolution T1 HOR 1.1 passed",
+            "units": ""
+        },
+        "Resolution T1 HOR 1.0 passed": {
+            "description": "Horizontal resolution",
+            "display_level": 2,
+            "display_name": "Resolution T1 HOR 1.0 passed",
+            "units": ""
+        },
+        "Resolution T1 HOR 0.9 passed": {
+            "description": "Horizontal resolution",
+            "display_level": 2,
+            "display_name": "Resolution T1 HOR 0.9 passed",
+            "units": ""
+        },
+        "Resolution T1 VER 1.1 passed": {
+            "description": "Vertical resolution",
+            "display_level": 2,
+            "display_name": "Resolution T1 VER 1.1 passed",
+            "units": ""
+        },
+        "Resolution T1 VER 1.0 passed": {
+            "description": "Vertical resolution",
+            "display_level": 2,
+            "display_name": "Resolution T1 VER 1.0 passed",
+            "units": ""
+        },
+        "Resolution T1 VER 0.9 passed": {
+            "description": "Vertical resolution",
+            "display_level": 2,
+            "display_name": "Resolution T1 VER 0.9 passed",
+            "units": ""
+        },
+        "Resolution T2 HOR 1.1 passed": {
+            "description": "Horizontal resolution",
+            "display_level": 2,
+            "display_name": "Resolution T2 HOR 1.1 passed",
+            "units": ""
+        },
+        "Resolution T2 HOR 1.0 passed": {
+            "description": "Horizontal resolution",
+            "display_level": 2,
+            "display_name": "Resolution T2 HOR 1.0 passed",
+            "units": ""
+        },
+        "Resolution T2 HOR 0.9 passed": {
+            "description": "Horizontal resolution",
+            "display_level": 2,
+            "display_name": "Resolution T2 HOR 0.9 passed",
+            "units": ""
+        },
+        "Resolution T2 VER 1.1 passed": {
+            "description": "Vertical resolution",
+            "display_level": 2,
+            "display_name": "Resolution T2 VER 1.1 passed",
+            "units": ""
+        },
+        "Resolution T2 VER 1.0 passed": {
+            "description": "Vertical resolution",
+            "display_level": 2,
+            "display_name": "Resolution T2 VER 1.0 passed",
+            "units": ""
+        },
+        "Resolution T2 VER 0.9 passed": {
+            "description": "Vertical resolution",
+            "display_level": 2,
+            "display_name": "Resolution T2 VER 0.9 passed",
+            "units": ""
+        },
+        "Slice Thickness T1": {
+            "constraint_minlowhighmax": [
+                4.0,
+                4.3,
+                5.7,
+                6.0
+            ],
+            "description": "Slice Thickness T1",
+            "display_level": 2,
+            "display_name": "Slice Thickness T1",
+            "units": "mm"
+        },
+        "Slice Thickness T2": {
+            "constraint_minlowhighmax": [
+                4.0,
+                4.3,
+                5.7,
+                6.0
+            ],
+            "description": "Slice Thickness T2",
+            "display_level": 2,
+            "display_name": "Slice Thickness T2",
+            "units": "mm"
+        },
+        "Slice Position Error T1 slice1": {
+            "constraint_minlowhighmax": [
+                -7.0,
+                -5.0,
+                5.0,
+                7.0
+            ],
+            "description": "Slice Position Error T1 bottom slice",
+            "display_level": 2,
+            "display_name": "Slice Position Error T1 slice1",
+            "units": "mm"
+        },
+        "Slice Position Error T1 slice11": {
+            "constraint_minlowhighmax": [
+                -7.0,
+                -5.0,
+                5.0,
+                7.0
+            ],
+            "description": "Slice Position Error T1 top slice",
+            "display_level": 2,
+            "display_name": "Slice Position Error T1 slice11",
+            "units": "mm"
+        },
+        "Slice Position Error T2 slice1": {
+            "constraint_minlowhighmax": [
+                -7.0,
+                -5.0,
+                5.0,
+                7.0
+            ],
+            "description": "Slice Position Error T2 bottom slice",
+            "display_level": 2,
+            "display_name": "Slice Position Error T2 slice1",
+            "units": "mm"
+        },
+        "Slice Position Error T2 slice11": {
+            "constraint_minlowhighmax": [
+                -7.0,
+                -5.0,
+                5.0,
+                7.0
+            ],
+            "description": "Slice Position Error T2 top slice",
+            "display_level": 2,
+            "display_name": "Slice Position Error T2 slice11",
+            "units": "mm"
+        },
+        "PIU T1": {
+            "constraint_minlowhighmax": [
+                80,
+                82,
+                null,
+                null
+            ],
+            "description": "Image uniformity T1",
+            "display_level": 2,
+            "display_name": "PIU T1",
+            "units": "mm"
+        },
+        "PIU T2": {
+            "constraint_minlowhighmax": [
+                80,
+                82,
+                null,
+                null
+            ],
+            "description": "Image uniformity T2",
+            "display_level": 2,
+            "display_name": "PIU T2",
+            "units": "mm"
+        },
+        "Ghosting Ratio": {
+            "constraint_minlowhighmax": [
+                null,
+                null,
+                2.5,
+                3.0
+            ],
+            "description": "Ghosting Ratio",
+            "display_level": 2,
+            "display_name": "Ghosting Percentage",
+            "units": "%"
+        },
+        "T1 number of counted spokes": {
+            "constraint_minlowhighmax": [
+                37,
+                37,
+                null,
+                null
+            ],
+            "description": "Low contrast object visibility T1",
+            "display_level": 2,
+            "display_name": "Visible low contrast spokes T1",
+            "units": ""
+        },
+        "T2 number of counted spokes": {
+            "constraint_minlowhighmax": [
+                37,
+                37,
+                null,
+                null
+            ],
+            "description": "Low contrast object visibility T2",
+            "display_level": 2,
+            "display_name": "Visible low contrast spokes T2",
+            "units": ""
+        },
+        "Geometry XY diameter": {
+            "description": "",
+            "display_level": 2,
+            "display_name": "",
+            "units": ""
+        },
+        "Geometry Z figure": {
+            "description": "",
+            "display_level": 2,
+            "display_name": "",
+            "units": ""
+        },
+        "Resolution T1": {
+            "description": "",
+            "display_level": 2,
+            "display_name": "",
+            "units": ""
+        },
+        "Resolution T2": {
+            "description": "",
+            "display_level": 2,
+            "display_name": "",
+            "units": ""
+        },
+        "Slice Thickness test": {
+            "description": "",
+            "display_level": 2,
+            "display_name": "",
+            "units": ""
+        },
+        "Slice Position Error": {
+            "description": "",
+            "display_level": 2,
+            "display_name": "",
+            "units": ""
+        },
+        "Percent Signal Ghosting": {
+            "description": "",
+            "display_level": 2,
+            "display_name": "",
+            "units": ""
+        },
+        "Image Intensity Uniformity test": {
+            "description": "",
+            "display_level": 2,
+            "display_name": "",
+            "units": ""
+        },
+        "T1 slices": {
+            "description": "",
+            "display_level": 2,
+            "display_name": "",
+            "units": ""
+        },
+        "T2 slices": {
+            "description": "",
+            "display_level": 2,
+            "display_name": "",
+            "units": ""
+        },
+        "T1 slice 1": {
+            "description": "",
+            "display_level": 1,
+            "display_name": "",
+            "units": ""
+        },
+        "T1 slice 2": {
+            "description": "",
+            "display_level": 1,
+            "display_name": "",
+            "units": ""
+        },
+        "T1 slice 3": {
+            "description": "",
+            "display_level": 1,
+            "display_name": "",
+            "units": ""
+        },
+        "T1 slice 4": {
+            "description": "",
+            "display_level": 1,
+            "display_name": "",
+            "units": ""
+        },
+        "T2 slice 1": {
+            "description": "",
+            "display_level": 1,
+            "display_name": "",
+            "units": ""
+        },
+        "T2 slice 2": {
+            "description": "",
+            "display_level": 1,
+            "display_name": "",
+            "units": ""
+        },
+        "T2 slice 3": {
+            "description": "",
+            "display_level": 1,
+            "display_name": "",
+            "units": ""
+        },
+        "T2 slice 4": {
+            "description": "",
+            "display_level": 1,
+            "display_name": "",
+            "units": ""
+        }
+    }
+}
