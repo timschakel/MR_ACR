@@ -612,11 +612,14 @@ def low_contrast_object_detectability(data, results, action):
     t1_count_spokes = 0
     t1_fig, ((t1_ax1, t1_ax2), (t1_ax3, t1_ax4)) = plt.subplots(2,2)
     t1_axs = [t1_ax1, t1_ax2, t1_ax3, t1_ax4]
+    angle_offset = 8*np.pi/180 # ~8 degrees increase from slice to slice
+    total_offset = 3*angle_offset
     
     for i in np.arange(3,-1,-1):
         image_data = np.transpose(t1_image_data[i,:,:]) # take slice-1 (0-index)
         lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']), x_res)
-        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['edge_sigma']), t1_axs[i], x_res, float(params['edge_low_threshold']), float(params['edge_high_threshold']), float(params['window_leveling']))
+        angle_offset_slice = total_offset - i*angle_offset
+        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius, t1_axs[i], x_res, angle_offset_slice, params)
         t1_count_spokes += count_spokes 
         fig_to_save.savefig(fig_filenames[i], dpi= 300)
     t1_fig.savefig("T1_slices.png", dpi= 300)
@@ -627,11 +630,13 @@ def low_contrast_object_detectability(data, results, action):
     for i in np.arange(3,-1,-1):
         image_data = np.transpose(t2_image_data[i,:,:]) # take slice-1 (0-index)
         lco_cx, lco_cy, radius = find_centre_lowcontrast(image_data,float(params['canny_sigma']),float(params['canny_low_threshold']),x_res)
-        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['edge_sigma']), t2_axs[i], x_res, float(params['edge_low_threshold']), float(params['edge_high_threshold']), float(params['window_leveling']))
+        count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius, t2_axs[i], x_res, angle_offset_slice, params)
+        #count_spokes, fig_to_save = find_circles(image_data[int(lco_cy-radius):int(lco_cy+radius),int(lco_cx-radius):int(lco_cx+radius)],radius,float(params['edge_sigma']), t2_axs[i], x_res, float(params['edge_low_threshold']), float(params['edge_high_threshold']), float(params['window_leveling']))
         t2_count_spokes += count_spokes 
         fig_to_save.savefig(fig_filenames[i+4], dpi= 300)
     t2_fig.savefig("T2_slices.png", dpi= 300)
     
+    #breakpoint()
     results.addFloat("T1 number of counted spokes", t1_count_spokes)
     # results.addFloat("T2 number of counted spokes", t2_count_spokes)
     results.addObject("T1 slices", "T1_slices.png")

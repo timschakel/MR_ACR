@@ -21,6 +21,8 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse,Circle, Rectangle,Polygon
 from scipy.signal import find_peaks
 from scipy.interpolate import interp2d
+from scipy.fft import rfft, rfftfreq, irfft
+from scipy.ndimage.filters import gaussian_filter1d
 import seaborn as sns
 import cv2
 
@@ -653,7 +655,13 @@ def create_circular_mask(image, rad):
     
     return mask
 
-def find_circles(image_data, rad, sigma, extra_ax, pixel_spacing,l_thresh,h_thresh,w_level):
+def find_circles(image_data, rad, extra_ax, pixel_spacing,angle_offset_slice,params):
+    sigma = float(params['edge_sigma'])
+    l_thresh = float(params['edge_low_threshold'])
+    h_thresh = float(params['edge_high_threshold'])
+    w_level = float(params['window_leveling'])
+    method = params['disk_finding_method']
+    
     #interpolate image
     x = np.arange(0,image_data.shape[1])
     y = np.arange(0,image_data.shape[0])
@@ -680,147 +688,286 @@ def find_circles(image_data, rad, sigma, extra_ax, pixel_spacing,l_thresh,h_thre
     fedges = interp2d(ynew*4,xnew*4,edges,kind='linear')
     fimage_hr = interp2d(ynew*4,xnew*4,image_data_hr,kind='cubic')
 
-    angle_offset = 8*np.pi/180 #~ 8 degree rotation per slice    
+    #angle_offset = 8*np.pi/180 #~ 8 degree rotation per slice    
     
-    profile_coordinates = [] # coordinates of circular profile
-    profile_edges = [] # edge detection data of the circular profile
-    profile_data = [] # image data of the circular profile
-    profile_edge_idxs = [] # the indices in profile_edges that are larger than 0 > edges
-    profile_bins = [] # the circular profile divided into bins based on the edge data
-    for circ in range(3):    
-        angles = np.linspace((-0.5*np.pi-angle_offset),(1.5*np.pi-angle_offset),num=int(300*profile_radii[circ]/profile_radii[0]))
-        profile_coordinates.append([rad+profile_radii[circ]*np.cos(angles),rad+profile_radii[circ]*np.sin(angles)])
-        profile_edges.append([fedges(profile_coordinates[circ][0][i], profile_coordinates[circ][1][i])[0] for i in range(profile_coordinates[circ][0].shape[0])])
-        profile_data.append([fimage_hr(profile_coordinates[circ][0][i], profile_coordinates[circ][1][i])[0] for i in range(profile_coordinates[circ][0].shape[0])])
-        #normalize
-        profile_data[circ] /= np.max(profile_data[circ])
-        profile_edge_idxs.append([i for i,x in enumerate(profile_edges[circ]) if x > 0.0])
-        #divide circle into bins    
-        tmp_bins = []    
-        for idx in range(1,len(profile_edge_idxs[circ])):
-            if (profile_edge_idxs[circ][idx]-profile_edge_idxs[circ][idx-1]) > 1:
-                m_val = np.mean(profile_data[circ][profile_edge_idxs[circ][idx-1]:profile_edge_idxs[circ][idx]])
-                tmp_bins.append(bin_circle(profile_edge_idxs[circ][idx-1], profile_edge_idxs[circ][idx], m_val, [rad,rad], len(profile_edges[circ])))
-        if ((profile_edge_idxs[circ][0]+len(profile_edges[circ])) - profile_edge_idxs[circ][-1]) > 1:
-            m_val = (np.mean(profile_data[circ][profile_edge_idxs[circ][-1]:-1])+np.mean(profile_data[circ][0:profile_edge_idxs[circ][0]]))/2
-            tmp_bins.append(bin_circle(profile_edge_idxs[circ][-1], profile_edge_idxs[circ][0]+len(profile_edges[circ]), m_val, [rad,rad], len(profile_edges[circ])))
-        #remove bins that are too large or too small
-        tmp_bins = [b for b in tmp_bins if (b.get_rad() > 2.5/pixel_spacing and b.get_rad() < 14/pixel_spacing)]
-        # Set the angles for the circelbins
-        for cbin in tmp_bins:
-            centercoords=[profile_coordinates[circ][0][int(cbin.get_center())],profile_coordinates[circ][1][int(cbin.get_center())]]
-            cbin.set_angle(centercoords[1], centercoords[0])
-        #add bins to list
-        profile_bins.append(tmp_bins)
+    count_spokes = []
+    fig = []
     
     
-    spokes = []
-    for c1 in profile_bins[0]:
-        spoke = [c1]
-        for c2 in profile_bins[1]:
-            if (np.abs(c2.get_deg()-c1.get_deg()) < 5 and c2.get_rad() - c1.get_rad() < 3/pixel_spacing):
-                spoke.append(c2)
-                break
-        for c3 in profile_bins[2]:
-            if (np.abs(c3.get_deg()-c1.get_deg()) < 5 and c3.get_rad() - c1.get_rad() < 3/pixel_spacing):
-                spoke.append(c3)
-                break
-        spokes.append(spoke)
-    
-    
-    #remove spokes without 3 circles
-    spokes = [spoke for spoke in spokes if len(spoke) == 3]
-    
-    #count consecutive spokes.
-    count_spokes = 0
-    if len(spokes) > 0: # if at least one spoke is found
-        spoke_angles = [spoke[0].get_deg() for spoke in spokes]
-        if (spoke_angles[0] > -90 and spoke_angles[0] < -50): # check if it is in fact the first spoke
-            count_spokes += 1
-            #check the diffs
-            if len(spokes) > 1:
-                diff_spoke_angles = [spoke_angles[i+1] - spoke_angles[i] for i in range(len(spoke_angles)-1)]
-                diff_spoke_angles = [d if d > 0 else d+360 for d in diff_spoke_angles]
-                for d in diff_spoke_angles:
-                    if (d < 40):
-                        count_spokes += 1
-                    else:                        
-                        break 
-
-    
-    #plotting 
-    circles = []
-    colors = sns.color_palette()
-    idx = 0
-    for spoke in spokes:
-        for circ in range(3):
-            c = int(spoke[circ].get_center())
-            if c >= len(profile_edges[circ]):
-                c -= len(profile_edges[circ])
-            r = spoke[circ].get_rad()
-            circ = Circle((profile_coordinates[circ][0][c],profile_coordinates[circ][1][c]) , radius = r, fill = False, ec= colors[idx])
-            circles.append(circ)
-        idx += 1
+    if method == 'edges':
+        profile_coordinates = [] # coordinates of circular profile
+        profile_edges = [] # edge detection data of the circular profile
+        profile_data = [] # image data of the circular profile
+        profile_edge_idxs = [] # the indices in profile_edges that are larger than 0 > edges
+        profile_bins = [] # the circular profile divided into bins based on the edge data
+        profile_data1 = [] # for not normalized
+        for circ in range(3):    
+            #angles = np.linspace((-0.5*np.pi-angle_offset_slice),(1.5*np.pi-angle_offset_slice),num=int(300*profile_radii[circ]/profile_radii[0]))
+            angles = np.linspace((-95*np.pi/180-angle_offset_slice),(265*np.pi/180-angle_offset_slice),num=int(300*profile_radii[circ]/profile_radii[0]))
+            profile_coordinates.append([rad+profile_radii[circ]*np.cos(angles),rad+profile_radii[circ]*np.sin(angles)])
+            profile_edges.append([fedges(profile_coordinates[circ][0][i], profile_coordinates[circ][1][i])[0] for i in range(profile_coordinates[circ][0].shape[0])])
+            profile_data.append([fimage_hr(profile_coordinates[circ][0][i], profile_coordinates[circ][1][i])[0] for i in range(profile_coordinates[circ][0].shape[0])])
+            #normalize
+            profile_data1.append([fimage_hr(profile_coordinates[circ][0][i], profile_coordinates[circ][1][i])[0] for i in range(profile_coordinates[circ][0].shape[0])])
+            
+            profile_data[circ] /= np.max(profile_data[circ])
+            profile_edge_idxs.append([i for i,x in enumerate(profile_edges[circ]) if x > 0.0])
+            #divide circle into bins    
+            tmp_bins = []    
+            for idx in range(1,len(profile_edge_idxs[circ])):
+                if (profile_edge_idxs[circ][idx]-profile_edge_idxs[circ][idx-1]) > 1:
+                    m_val = np.mean(profile_data[circ][profile_edge_idxs[circ][idx-1]:profile_edge_idxs[circ][idx]])
+                    tmp_bins.append(bin_circle(profile_edge_idxs[circ][idx-1], profile_edge_idxs[circ][idx], m_val, [rad,rad], len(profile_edges[circ])))
+            if ((profile_edge_idxs[circ][0]+len(profile_edges[circ])) - profile_edge_idxs[circ][-1]) > 1:
+                m_val = (np.mean(profile_data[circ][profile_edge_idxs[circ][-1]:-1])+np.mean(profile_data[circ][0:profile_edge_idxs[circ][0]]))/2
+                tmp_bins.append(bin_circle(profile_edge_idxs[circ][-1], profile_edge_idxs[circ][0]+len(profile_edges[circ]), m_val, [rad,rad], len(profile_edges[circ])))
+            #remove bins that are too large or too small
+            tmp_bins = [b for b in tmp_bins if (b.get_rad() > 2.5/pixel_spacing and b.get_rad() < 14/pixel_spacing)]
+            # Set the angles for the circelbins
+            for cbin in tmp_bins:
+                centercoords=[profile_coordinates[circ][0][int(cbin.get_center())],profile_coordinates[circ][1][int(cbin.get_center())]]
+                cbin.set_angle(centercoords[1], centercoords[0])
+            #add bins to list
+            profile_bins.append(tmp_bins)
+            
+        spokes = []
+        for c1 in profile_bins[0]:
+            spoke = [c1]
+            for c2 in profile_bins[1]:
+                if (np.abs(c2.get_deg()-c1.get_deg()) < 5 and c2.get_rad() - c1.get_rad() < 3/pixel_spacing):
+                    spoke.append(c2)
+                    break
+            for c3 in profile_bins[2]:
+                if (np.abs(c3.get_deg()-c1.get_deg()) < 5 and c3.get_rad() - c1.get_rad() < 3/pixel_spacing):
+                    spoke.append(c3)
+                    break
+            spokes.append(spoke)
         
         
-    fig, axs = plt.subplots(2,3)
-    axs[0,0].imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
-    axs[0,0].scatter(rad, rad)
-    for circ in range(3):
-        axs[0,0].scatter(profile_coordinates[circ][0],profile_coordinates[circ][1],s=1)
-    axs[0,0].set_title('Original image')
-    axs[0,0].axis('off')
-    
-    axs[0,1].imshow(edges)
-    axs[0,1].scatter(profile_coordinates[0][0],profile_coordinates[0][1],s=1,color='tab:orange')
-    axs[0,1].scatter(profile_coordinates[1][0],profile_coordinates[1][1],s=1,color='g')
-    axs[0,1].scatter(profile_coordinates[2][0],profile_coordinates[2][1],s=1,color='r')
-    axs[0,1].set_title('Edges')
-    axs[0,1].axis('off')
-    
-    axs[0,2].imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
-    for circ in circles:    
-        axs[0,2].add_patch(circ)
-    axs[0,2].set_title('Found ' + str(count_spokes) + ' consecutive spokes')
-    axs[0,2].axis('off')
-    
-    
-    axs[1,0].plot(profile_edges[0],color='tab:orange')
-    axs[1,0].plot(profile_data[0])
-    axs[1,0].set_title('Signal&edges inner')
-    
-    axs[1,1].plot(profile_edges[1],color='g')
-    axs[1,1].plot(profile_data[1])
-    axs[1,1].set_title('Signal&edges middle')
-    
-    axs[1,2].plot(profile_edges[2],color='r')
-    axs[1,2].plot(profile_data[2])
-    axs[1,2].set_title('Signal&edges outer')
-    
-    plt.show()
-    
-    # for overall plot (cannot reuse artists...)
-    circles2 = []
-    colors = sns.color_palette()
-    idx = 0
-    for spoke in spokes:
+        #remove spokes without 3 circles
+        spokes = [spoke for spoke in spokes if len(spoke) == 3]
+        
+        #count consecutive spokes.
+        count_spokes = 0
+        if len(spokes) > 0: # if at least one spoke is found
+            spoke_angles = [spoke[0].get_deg() for spoke in spokes]
+            if (spoke_angles[0] > -90 and spoke_angles[0] < -50): # check if it is in fact the first spoke
+                count_spokes += 1
+                #check the diffs
+                if len(spokes) > 1:
+                    diff_spoke_angles = [spoke_angles[i+1] - spoke_angles[i] for i in range(len(spoke_angles)-1)]
+                    diff_spoke_angles = [d if d > 0 else d+360 for d in diff_spoke_angles]
+                    for d in diff_spoke_angles:
+                        if (d < 40):
+                            count_spokes += 1
+                        else:                        
+                            break 
+        
+        #plotting 
+        circles = []
+        colors = sns.color_palette()
+        idx = 0
+        for spoke in spokes:
+            for circ in range(3):
+                c = int(spoke[circ].get_center())
+                if c >= len(profile_edges[circ]):
+                    c -= len(profile_edges[circ])
+                r = spoke[circ].get_rad()
+                circ = Circle((profile_coordinates[circ][0][c],profile_coordinates[circ][1][c]) , radius = r, fill = False, ec= colors[idx])
+                circles.append(circ)
+            idx += 1
+            
+            
+        fig, axs = plt.subplots(2,3)
+        axs[0,0].imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
+        axs[0,0].scatter(rad, rad)
         for circ in range(3):
-            c = int(spoke[circ].get_center())
-            if c >= len(profile_edges[circ]):
-                c -= len(profile_edges[circ])
-            r = spoke[circ].get_rad()
-            circ = Circle((profile_coordinates[circ][0][c],profile_coordinates[circ][1][c]) , radius = r, fill = False, ec= colors[idx])
-            circles2.append(circ)
-        idx += 1
+            axs[0,0].scatter(profile_coordinates[circ][0],profile_coordinates[circ][1],s=1)
+        axs[0,0].set_title('Original image')
+        axs[0,0].axis('off')
+        
+        axs[0,1].imshow(edges)
+        axs[0,1].scatter(profile_coordinates[0][0],profile_coordinates[0][1],s=1,color='tab:orange')
+        axs[0,1].scatter(profile_coordinates[1][0],profile_coordinates[1][1],s=1,color='g')
+        axs[0,1].scatter(profile_coordinates[2][0],profile_coordinates[2][1],s=1,color='r')
+        axs[0,1].set_title('Edges')
+        axs[0,1].axis('off')
+        
+        axs[0,2].imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
+        for circ in circles:    
+            axs[0,2].add_patch(circ)
+        axs[0,2].set_title('Found ' + str(count_spokes) + ' consecutive spokes')
+        axs[0,2].axis('off')
+        
+        
+        axs[1,0].plot(profile_edges[0],color='tab:orange')
+        axs[1,0].plot(profile_data[0])
+        axs[1,0].set_title('Signal&edges inner')
+        
+        axs[1,1].plot(profile_edges[1],color='g')
+        axs[1,1].plot(profile_data[1])
+        axs[1,1].set_title('Signal&edges middle')
+        
+        axs[1,2].plot(profile_edges[2],color='r')
+        axs[1,2].plot(profile_data[2])
+        axs[1,2].set_title('Signal&edges outer')
+        
+        plt.show()
+        
+        # for overall plot (cannot reuse artists...)
+        circles2 = []
+        colors = sns.color_palette()
+        idx = 0
+        for spoke in spokes:
+            for circ in range(3):
+                c = int(spoke[circ].get_center())
+                if c >= len(profile_edges[circ]):
+                    c -= len(profile_edges[circ])
+                r = spoke[circ].get_rad()
+                circ = Circle((profile_coordinates[circ][0][c],profile_coordinates[circ][1][c]) , radius = r, fill = False, ec= colors[idx])
+                circles2.append(circ)
+            idx += 1
 
-    extra_ax.imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
-    for circ in circles2:    
-        extra_ax.add_patch(circ)
-    extra_ax.set_title('Found ' + str(count_spokes) + ' consecutive spokes')
-    extra_ax.axis('off')
-    
-    
+        extra_ax.imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
+        for circ in circles2:    
+            extra_ax.add_patch(circ)
+        extra_ax.set_title('Found ' + str(count_spokes) + ' consecutive spokes')
+        extra_ax.axis('off')
+        
+    elif method == 'peaks':
+        profile_coordinates = [] # coordinates of circular profile
+        profile_data = [] # image data of the circular profile
+        for circ in range(3):    
+            #angles = np.linspace((-0.5*np.pi-angle_offset_slice),(1.5*np.pi-angle_offset_slice),num=int(300*profile_radii[circ]/profile_radii[0]))
+            angles = np.linspace((-95*np.pi/180-angle_offset_slice),(265*np.pi/180-angle_offset_slice),num=int(300*profile_radii[circ]/profile_radii[0]))
+            profile_coordinates.append([rad+profile_radii[circ]*np.cos(angles),rad+profile_radii[circ]*np.sin(angles)])
+            profile_data.append([fimage_hr(profile_coordinates[circ][0][i], profile_coordinates[circ][1][i])[0] for i in range(profile_coordinates[circ][0].shape[0])])
+        
+        profile_peaks = []
+        profile_data_norm = []
+        profile_data_norm_filt = []
+        for circ in range(3):
+            # expect 10 peaks, so duplicate 10% to start and end of array
+            #npad = np.int(0.1 * len(profile_data[circ]))
+            #profile_data_padded = np.insert(profile_data[circ],0,profile_data[circ][-npad:])
+            #profile_data_padded = np.append(profile_data_padded,profile_data[circ][0:npad])
+            
+            # filter
+            #profile_data_filt = gaussian_filter1d(profile_data_padded,5) #parameterize this sigma
+            
+            # 10 equally spaced circles
+            #pdistance = 0.9*len(profile_data[circ])/10
+            #allpeaks,_ = find_peaks(profile_data_filt,distance = pdistance)
+            
+            #dismiss peaks from first npad and last npad locations
+            #and shift npad back to account for offset
+            #peaks = allpeaks[(allpeaks>npad) & (allpeaks<(len(profile_data_padded)-npad))]
+            #peaks -= npad
+            
+            # add something to reject peaks at very start of profile
+            # filter/padding artefact
+            #profile_peaks.append( peaks[peaks>10] )
+            
+            
+            #filter with fft
+            tmparray = profile_data[circ] / np.max(profile_data[circ])
+
+            yf = rfft(tmparray)
+            xf = rfftfreq(len(tmparray), 1)
+            
+            # fig, axs = plt.subplots(1,2)
+            # axs[0].plot(tst)
+            # axs[1].plot(xf, np.abs(yf))
+
+            # copy the FFT results
+            yf_filt = yf.copy()
+            
+            # define the cut-off frequency
+            cut_off1 = 0.005
+            cut_off2 = 0.05
+            
+            # high-pass filter by assign zeros to the 
+            # FFT amplitudes where the absolute 
+            # frequencies smaller than the cut-off 
+            yf_filt[np.abs(xf) < cut_off1] = 0
+            yf_filt[np.abs(xf) > cut_off2] = 0
+            
+            # get the filtered signal in time domain
+            filtered = irfft(yf_filt)
+            
+            #axs[0].plot(filtered)
+            pdistance = 0.9*len(profile_data[circ])/10
+            allpeaks,_ = find_peaks(filtered,distance = pdistance)
+            #axs[0].scatter(allpeaks,filtered[allpeaks])
+            profile_peaks.append( allpeaks )
+            profile_data_norm.append( tmparray )
+            profile_data_norm_filt.append(filtered)
+       
+            
+        # the profile lengths have been scaled by num=int(300*profile_radii[circ]/profile_radii[0])
+        # bring them back to 300 length
+        profile_peaks0 = []
+        for circ in range(3):
+            profile_peaks0.append(np.int0(profile_peaks[circ] * profile_radii[0]/profile_radii[circ]))
+            
+        # start with the located peak at inner circle
+        # compare the index with the located peaks in the middle/outer circle
+        # (assumes we have found the (first) disk of the inner circle...?)
+        count_spokes = 0
+        for disk in range(len(profile_peaks0[0])):
+            peak_loc1 = profile_peaks0[0][disk]
+            try:
+                peak_loc2 = profile_peaks0[1][disk]
+            except:
+                # no peaks anymore in middle circle: stop counting
+                break
+            try:
+                peak_loc3 = profile_peaks0[2][disk]
+            except:
+                # no peaks anymore in middle circle: stop counting
+                break
+            
+            if np.abs(peak_loc1 - peak_loc2) < 8 and np.abs(peak_loc1 - peak_loc3) < 8:
+                # 3 disks found within range, continue:
+                count_spokes += 1
+            else:
+                # < 3 disks found within range, stop counting
+                break
+        
+        fig, axs = plt.subplots(2,2)
+        axs[0,0].imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
+        axs[0,0].scatter(rad, rad)
+        for circ in range(3):
+            axs[0,0].scatter(profile_coordinates[circ][0],profile_coordinates[circ][1],s=1)
+        axs[0,0].set_title('Original image')
+        axs[0,0].axis('off')
+        
+        #axs[0,1].plot(profile_data[0],color='tab:orange')
+        axs[0,1].plot(profile_data_norm[0],color='tab:orange')
+        axs[0,1].plot(profile_data_norm_filt[0])
+        axs[0,1].scatter(profile_peaks[0],np.array(profile_data_norm_filt[0])[profile_peaks[0]])
+        axs[0,1].set_title('Signal&peaks inner')
+        
+        axs[1,0].plot(profile_data_norm[1],color='g')
+        axs[1,0].plot(profile_data_norm_filt[1])
+        axs[1,0].scatter(profile_peaks[1],np.array(profile_data_norm_filt[1])[profile_peaks[1]])
+        axs[1,0].set_title('Signal&peaks middle')
+        
+        axs[1,1].plot(profile_data_norm[2],color='r')
+        axs[1,1].plot(profile_data_norm_filt[2])
+        axs[1,1].scatter(profile_peaks[2],np.array(profile_data_norm_filt[2])[profile_peaks[2]])
+        axs[1,1].set_title('Signal&peaks outer')
+        
+        # for overall plot (cannot reuse artists...)
+        extra_ax.imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
+        extra_ax.set_title('Found ' + str(count_spokes) + ' consecutive spokes')
+        extra_ax.axis('off')
+        
+    else:
+        print('WARNING: Unknown disk_finding_method')
+
     return count_spokes, fig
+   
 
 
 def get_slice_position_error(image_data,x_center_px,y_center_px,axs,title,pixel_spacing):
