@@ -79,7 +79,7 @@
     	"params": {
     	 "slicenumber": "7",
     	 "canny_sigma": "3",
-        "canny_low_threshold": "200"
+         "canny_low_threshold": "200"
     	}
     },
      "percent_signal_ghosting": {

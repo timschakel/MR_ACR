@@ -345,7 +345,7 @@ def find_z_length(image_data_z,pixel_spacing,acqdate,params):
     Select the largest contour and extract z_length
     Create a plot
     """
-    edges_z = detect_edges(image_data_z, 1, int(params['canny_low_threshold'])) #get edges from the image
+    edges_z = detect_edges(image_data_z, float(params['canny_sigma']), int(params['canny_low_threshold'])) #get edges from the image
     
     # from the edges, extract the contours
     contours, hierarchy = cv2.findContours(edges_z.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)

@@ -37,18 +37,9 @@
       "params": {
       	"slicenumber": "1",
       	"bg_factor_t1": 5,
-      	"bg_factor_t2": 4
-      }
-    },
-    "resolution_t2": {
-      "filters": {
-      	"SeriesDescription": "t T2 bw436",
-      	"ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
-      	"EchoNumbers": "2"
-      	},
-      "params": {
-      	"slicenumber": "1",
-      	"bg_factor": 4
+      	"bg_factor_t2": 4,
+      	"canny_sigma": "3",
+        "canny_low_threshold": "200"
       }
     },
     "slice_thickness": {
@@ -57,10 +48,12 @@
             "t2_series_description": "t T2 bw436",
             "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
 	    "EchoNumbers": "2"
-    	},
+    	  },
     	"params": {
-    	 "slicenumber": "1"
-    	}
+    	 "slicenumber": "1",
+    	 "canny_sigma": "3",
+         "canny_low_threshold": "200"
+    	  }
     },
     "slice_position": {
       "filters": {
@@ -71,7 +64,9 @@
 	    	},
       "params": {
       	"slicenumberbot": "1",
-      	"slicenumbertop": "11"
+      	"slicenumbertop": "11",
+      	"canny_sigma": "3",
+        "canny_low_threshold": "200"
       }
     },
     "image_intensity_uniformity": {
@@ -82,7 +77,9 @@
 	    "EchoNumbers": "2"
     	},
     	"params": {
-    	 "slicenumber": "7"
+    	 "slicenumber": "7",
+    	 "canny_sigma": "3",
+         "canny_low_threshold": "200"
     	}
     },
      "percent_signal_ghosting": {
@@ -90,7 +87,9 @@
     	    "SeriesDescription": "t T1 bw436"
     	},
     	"params": {
-    	 "slicenumber": "7"
+    	 "slicenumber": "7",
+    	 "canny_sigma": "3",
+         "canny_low_threshold": "200"
     	}
     }
   },
