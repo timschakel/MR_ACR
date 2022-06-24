@@ -847,59 +847,26 @@ def find_circles(image_data, rad, extra_ax, pixel_spacing,angle_offset_slice,par
         profile_data_norm = []
         profile_data_norm_filt = []
         for circ in range(3):
-            # expect 10 peaks, so duplicate 10% to start and end of array
-            #npad = np.int(0.1 * len(profile_data[circ]))
-            #profile_data_padded = np.insert(profile_data[circ],0,profile_data[circ][-npad:])
-            #profile_data_padded = np.append(profile_data_padded,profile_data[circ][0:npad])
-            
-            # filter
-            #profile_data_filt = gaussian_filter1d(profile_data_padded,5) #parameterize this sigma
-            
-            # 10 equally spaced circles
-            #pdistance = 0.9*len(profile_data[circ])/10
-            #allpeaks,_ = find_peaks(profile_data_filt,distance = pdistance)
-            
-            #dismiss peaks from first npad and last npad locations
-            #and shift npad back to account for offset
-            #peaks = allpeaks[(allpeaks>npad) & (allpeaks<(len(profile_data_padded)-npad))]
-            #peaks -= npad
-            
-            # add something to reject peaks at very start of profile
-            # filter/padding artefact
-            #profile_peaks.append( peaks[peaks>10] )
-            
-            
             #filter with fft
             tmparray = profile_data[circ] / np.max(profile_data[circ])
-
             yf = rfft(tmparray)
             xf = rfftfreq(len(tmparray), 1)
-            
-            # fig, axs = plt.subplots(1,2)
-            # axs[0].plot(tst)
-            # axs[1].plot(xf, np.abs(yf))
-
-            # copy the FFT results
             yf_filt = yf.copy()
             
-            # define the cut-off frequency
-            cut_off1 = 0.005
-            cut_off2 = 0.05
+            # define the cut-off frequencies
+            cut_off1 = 0.01
+            cut_off2 = 0.04
             
-            # high-pass filter by assign zeros to the 
-            # FFT amplitudes where the absolute 
-            # frequencies smaller than the cut-off 
+            # filter the signals
             yf_filt[np.abs(xf) < cut_off1] = 0
             yf_filt[np.abs(xf) > cut_off2] = 0
-            
-            # get the filtered signal in time domain
             filtered = irfft(yf_filt)
             
-            #axs[0].plot(filtered)
+            #find peaks
             pdistance = 0.9*len(profile_data[circ])/10
             allpeaks,_ = find_peaks(filtered,distance = pdistance)
-            #axs[0].scatter(allpeaks,filtered[allpeaks])
-            profile_peaks.append( allpeaks )
+            
+            profile_peaks.append( allpeaks[allpeaks > 0.03*len(profile_data[circ])] ) #skip very early peaks
             profile_data_norm.append( tmparray )
             profile_data_norm_filt.append(filtered)
        
