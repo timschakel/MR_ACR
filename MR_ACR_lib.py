@@ -592,7 +592,7 @@ def low_contrast_object_detectability(data, results, action):
     
     #use slice 6 because slice 1 has too much sturctues in it
     image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-    # x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
     x_center_px, y_center_px = find_center(image_data_center,params)
     x_center_px = int(x_center_px)
     y_center_px = int(y_center_px)

@@ -881,6 +881,11 @@ def find_circles(image_data, rad, extra_ax, pixel_spacing,angle_offset_slice,par
         # compare the index with the located peaks in the middle/outer circle
         # (assumes we have found the (first) disk of the inner circle...?)
         count_spokes = 0
+        #plotting 
+        circles = []
+        colors = sns.color_palette()
+        idx = 0
+        r = [i for i in range(14,4,-1)]
         for disk in range(len(profile_peaks0[0])):
             peak_loc1 = profile_peaks0[0][disk]
             try:
@@ -897,6 +902,17 @@ def find_circles(image_data, rad, extra_ax, pixel_spacing,angle_offset_slice,par
             if np.abs(peak_loc1 - peak_loc2) < 8 and np.abs(peak_loc1 - peak_loc3) < 8:
                 # 3 disks found within range, continue:
                 count_spokes += 1
+                # for plotting
+                circ = Circle((profile_coordinates[0][0][peak_loc1],profile_coordinates[0][1][peak_loc1]) , radius = r[idx], fill = False, ec= colors[idx])
+                circles.append(circ)
+                peak_loc2 = int(peak_loc2*profile_radii[1]/profile_radii[0])
+                circ = Circle((profile_coordinates[1][0][peak_loc2],profile_coordinates[1][1][peak_loc2]) , radius = r[idx], fill = False, ec= colors[idx])
+                circles.append(circ)
+                peak_loc3 = int(peak_loc3*profile_radii[2]/profile_radii[0])
+                circ = Circle((profile_coordinates[2][0][peak_loc3],profile_coordinates[2][1][peak_loc3]) , radius = r[idx], fill = False, ec= colors[idx])
+                circles.append(circ)
+                idx += 1
+                    
             else:
                 # < 3 disks found within range, stop counting
                 break
@@ -928,6 +944,8 @@ def find_circles(image_data, rad, extra_ax, pixel_spacing,angle_offset_slice,par
         # for overall plot (cannot reuse artists...)
         extra_ax.imshow(image_data_hr,vmin = np.max(image_data)/w_level, vmax=np.max(image_data),cmap=plt.get_cmap("Greys_r"))
         extra_ax.set_title('Found ' + str(count_spokes) + ' consecutive spokes')
+        for circ in circles:    
+            extra_ax.add_patch(circ)
         extra_ax.axis('off')
         
     else:
