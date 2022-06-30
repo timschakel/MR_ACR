@@ -136,7 +136,7 @@ def geometry_xy(data,results,action):
     
     # Collect results
     results.addFloat("Geometry XY diameter", xy_diameter_mm)
-    results.addObject("Geometry XY diameter", geometry_xy_filename)
+    results.addObject("Geometry XY figure", geometry_xy_filename)
 
 def resolution(data,results,action):
     """
@@ -639,7 +639,7 @@ def low_contrast_object_detectability(data, results, action):
     
     #breakpoint()
     results.addFloat("T1 number of counted spokes", t1_count_spokes)
-    # results.addFloat("T2 number of counted spokes", t2_count_spokes)
+    results.addFloat("T2 number of counted spokes", t2_count_spokes)
     results.addObject("T1 slices", "T1_slices.png")
     results.addObject("T2 slices", "T2_slices.png")
     results.addObject("T1 slice 1", fig_filenames[0])

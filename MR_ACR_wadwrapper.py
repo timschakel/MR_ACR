@@ -24,8 +24,8 @@ from wad_qc.module import pyWADinput
 #     except:
 #         os.environ['MPLCONFIGDIR'] = "/tmp/.matplotlib" # if this folder already exists it must be accessible by the owner of WAD_Processor 
 
-# import matplotlib
-# matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
+import matplotlib
+matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
 
 import MR_ACR_lib
 

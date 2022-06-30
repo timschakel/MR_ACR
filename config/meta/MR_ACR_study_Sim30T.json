@@ -241,7 +241,7 @@
             "display_name": "Visible low contrast spokes T2",
             "units": ""
         },
-        "Geometry XY diameter": {
+        "Geometry XY figure": {
             "description": "",
             "display_level": 2,
             "display_name": "",
@@ -253,13 +253,7 @@
             "display_name": "",
             "units": ""
         },
-        "Resolution T1": {
-            "description": "",
-            "display_level": 2,
-            "display_name": "",
-            "units": ""
-        },
-        "Resolution T2": {
+        "Resolution": {
             "description": "",
             "display_level": 2,
             "display_name": "",
