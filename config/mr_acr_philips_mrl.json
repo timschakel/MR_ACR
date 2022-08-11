@@ -4,12 +4,12 @@
       "filters": {},
       "params": {
         "datetime_level": "Study",
-        "datetime_series_description": "t T1 bw436"
+        "datetime_series_description": "t T1 bw634_clear"
       }
     },
     "geometry_z": {
       "filters": {
-      	"SeriesDescription": "Survey",
+      	"SeriesDescription": "Survey_hBW_nsa2",
       	"0x2001,100b": "SAGITTAL"
       	},
       "params": {
@@ -19,7 +19,7 @@
     },
     "geometry_xy": {
       "filters": {
-      	"SeriesDescription": "t T1 bw436"
+      	"SeriesDescription": "t T1 bw634_clear"
       	},
       "params": {
       	"slicenumber": "6",
@@ -29,8 +29,8 @@
     },
     "resolution": {
       "filters": {
-    	    "t1_series_description": "t T1 bw436",
-            "t2_series_description": "t T2 bw436",
+    	    "t1_series_description": "t T1 bw634_clear",
+            "t2_series_description": "t T2 bw634_clear",
             "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
 	    	"EchoNumbers": "2"
 	    	},
@@ -44,8 +44,8 @@
     },
     "slice_thickness": {
     	"filters": {
-    	    "t1_series_description": "t T1 bw436",
-            "t2_series_description": "t T2 bw436",
+    	    "t1_series_description": "t T1 bw634_clear",
+            "t2_series_description": "t T2 bw634_clear",
             "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
 	    "EchoNumbers": "2"
     	  },
@@ -57,8 +57,8 @@
     },
     "slice_position": {
       "filters": {
-    	    "t1_series_description": "t T1 bw436",
-            "t2_series_description": "t T2 bw436",
+    	    "t1_series_description": "t T1 bw634_clear",
+            "t2_series_description": "t T2 bw634_clear",
             "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
 	    	"EchoNumbers": "2"
 	    	},
@@ -71,8 +71,8 @@
     },
     "image_intensity_uniformity": {
         "filters": {
-    	    "t1_series_description": "t T1 bw436",
-            "t2_series_description": "t T2 bw436",
+    	    "t1_series_description": "t T1 bw634_clear",
+            "t2_series_description": "t T2 bw634_clear",
             "ImageType": "['ORIGINAL', 'PRIMARY', 'M_SE', 'M', 'SE']",
 	    "EchoNumbers": "2"
     	},
@@ -84,7 +84,7 @@
     },
      "percent_signal_ghosting": {
         "filters": {
-    	    "SeriesDescription": "t T1 bw436"
+    	    "SeriesDescription": "t T1 bw634_clear"
     	},
     	"params": {
     	 "slicenumber": "7",
