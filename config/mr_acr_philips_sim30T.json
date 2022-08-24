@@ -23,7 +23,7 @@
       	},
       "params": {
       	"slicenumber": "6",
-		"canny_sigma": "3",
+		"canny_sigma": "2",
         "canny_low_threshold": "200"
       }
     },

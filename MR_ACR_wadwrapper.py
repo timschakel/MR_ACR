@@ -6,23 +6,12 @@ Created on Mon May 30 09:25:48 2022
 @author: tschakel
 """
 
-__version__ = '20220525'
+__version__ = '20220824'
 __author__ = 'tschakel'
 
-import os
 
 # this will fail unless wad_qc is already installed
 from wad_qc.module import pyWADinput
-
-# if not 'MPLCONFIGDIR' in os.environ:
-#     import pkg_resources
-#     try:
-#         #only for matplotlib < 3 should we use the tmp work around, but it should be applied before importing matplotlib
-#         matplotlib_version = [int(v) for v in pkg_resources.get_distribution("matplotlib").version.split('.')]
-#         if matplotlib_version[0]<3:
-#             os.environ['MPLCONFIGDIR'] = "/tmp/.matplotlib" # if this folder already exists it must be accessible by the owner of WAD_Processor 
-#     except:
-#         os.environ['MPLCONFIGDIR'] = "/tmp/.matplotlib" # if this folder already exists it must be accessible by the owner of WAD_Processor 
 
 import matplotlib
 matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.

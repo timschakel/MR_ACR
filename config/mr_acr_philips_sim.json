@@ -13,7 +13,7 @@
       	"0x2001,100b": "SAGITTAL"
       	},
       "params": {
-      	"canny_sigma": "3",
+      	"canny_sigma": "2",
         "canny_low_threshold": "200"
       }
     },
@@ -23,8 +23,8 @@
       	},
       "params": {
       	"slicenumber": "6",
-		"canny_sigma": "3",
-        "canny_low_threshold": "200"
+		"canny_sigma": "2",
+        "canny_low_threshold": "100"
       }
     },
     "resolution": {
@@ -38,8 +38,8 @@
       	"slicenumber": "1",
       	"bg_factor_t1": 5,
       	"bg_factor_t2": 4,
-      	"canny_sigma": "3",
-      	"canny_low_threshold": "200"
+      	"canny_sigma": "2",
+      	"canny_low_threshold": "50"
       }
     },
     "slice_thickness": {
@@ -51,8 +51,8 @@
     	  },
     	"params": {
     	 "slicenumber": "1",
-    	 "canny_sigma": "3",
-         "canny_low_threshold": "200"
+    	 "canny_sigma": "2",
+         "canny_low_threshold": "100"
     	  }
     },
     "slice_position": {
@@ -65,8 +65,8 @@
       "params": {
       	"slicenumberbot": "1",
       	"slicenumbertop": "11",
-      	"canny_sigma": "3",
-        "canny_low_threshold": "200"
+      	"canny_sigma": "2",
+        "canny_low_threshold": "100"
       }
     },
     "image_intensity_uniformity": {
@@ -78,8 +78,8 @@
     	},
     	"params": {
     	 "slicenumber": "7",
-    	 "canny_sigma": "3",
-         "canny_low_threshold": "200"
+    	 "canny_sigma": "2",
+         "canny_low_threshold": "100"
     	}
     },
      "percent_signal_ghosting": {
@@ -88,8 +88,8 @@
     	},
     	"params": {
     	 "slicenumber": "7",
-    	 "canny_sigma": "3",
-         "canny_low_threshold": "200"
+    	 "canny_sigma": "2",
+         "canny_low_threshold": "100"
     	}
     },
      "low_contrast_object_detectability": {
@@ -102,8 +102,8 @@
     	"params": {
     		"firstslice": "8",
     	    "lastslice": "11",
-    	    "canny_sigma": "3",
-            "canny_low_threshold": "200",
+    	    "canny_sigma": "2",
+            "canny_low_threshold": "100",
             "edge_low_threshold": "16",
             "edge_high_threshold": "20",
             "edge_sigma": "3",

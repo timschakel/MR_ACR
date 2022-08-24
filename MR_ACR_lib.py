@@ -11,11 +11,12 @@ import numpy as np
 import pydicom
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle,Circle
+import MR_ACR_dcm_input
 from MR_ACR_util import (find_z_length,find_xy_diameter,retrieve_ellipse_parameters,
                          check_resolution_peaks1,check_resolution_peaks2,find_fwhm,
                          detect_edges,mask_to_coordinates,find_min_and_max_intensity_region,
                          get_mean_circle_ROI,get_mean_rect_ROI, find_centre_lowcontrast,
-                         find_circles,get_slice_position_error,find_center)
+                         find_circles,get_slice_position_error,find_center,find_radius)
 
 ### Helper functions
 def getValue(ds, label):
@@ -108,9 +109,9 @@ def geometry_z(data,results,action):
     sag_filter = {item:filters.get(item)for item in ["0x2001,100b"]}
     data_loc = applyFilters(data.series_filelist, loc_filter)
     data_loc_sag = applyFilters(data_loc, sag_filter)
-    dcmInfile_loc,pixeldataIn_loc,dicomMode = wadwrapper_lib.prepareInput(data_loc_sag[0],headers_only=False)
+    dcmInfile_loc,pixeldataIn_loc,dicomMode = MR_ACR_dcm_input.prepareInput(data_loc_sag[0],headers_only=False)
     image_data_z = np.transpose(pixeldataIn_loc[1,:,:]) # take central slice (check if data is always ordered the same?)
-        
+
     z_length_mm,geometry_z_filename = find_z_length(image_data_z, float(dcmInfile_loc.info.PixelSpacing[0]), dcmInfile_loc.info.AcquisitionDate, params)
     
     # Collect results
@@ -129,7 +130,7 @@ def geometry_xy(data,results,action):
     # Select the localizer series and determine z length
     series_filter = {item:filters.get(item)for item in ["SeriesDescription"]}
     data_series = applyFilters(data.series_filelist, series_filter)
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(data_series[0],headers_only=False)
     image_data_xy = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
 
     xy_diameter_mm, x_center_px,y_center_px,geometry_xy_filename = find_xy_diameter(image_data_xy, float(dcmInfile.info.PixelSpacing[0]), params)
@@ -153,7 +154,7 @@ def resolution(data,results,action):
     """
     t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(t1_data_series[0],headers_only=False)
     image_data_t1 = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
     image_data_t1_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
     
@@ -210,7 +211,7 @@ def resolution(data,results,action):
     data_series_type = applyFilters(data_series, type_filter)
     data_series_type_echo = applyFilters(data_series_type, echo_filter)
     
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(data_series_type_echo[0],headers_only=False)
     image_data_t2 = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
     image_data_t2_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
     
@@ -258,7 +259,7 @@ def slice_thickness(data, results, action):
     t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
     #load T1
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(t1_data_series[0],headers_only=False)
     x_res = float(dcmInfile.info.PixelSpacing[0])
     t1_image_data = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
     
@@ -281,7 +282,7 @@ def slice_thickness(data, results, action):
     data_series_type_echo = applyFilters(data_series_type, echo_filter)
     
     
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(data_series_type_echo[0],headers_only=False)
     t2_image_data = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
     
     # T1 slice thickness determination (bounds are excluding last point)
@@ -371,14 +372,14 @@ def image_intensity_uniformity(data, results, action):
     #load T1
     t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(t1_data_series[0],headers_only=False)
     x_res = float(dcmInfile.info.PixelSpacing[0])
     t1_image_data = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
     
     
     #use slice 6 because slice 1 has too much sturctues in it
     image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-    x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
+    #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:2]
     x_center_px, y_center_px = find_center(image_data_center,params)
     x_center_px = int(x_center_px)
     y_center_px = int(y_center_px)
@@ -392,7 +393,7 @@ def image_intensity_uniformity(data, results, action):
     data_series_type = applyFilters(data_series, type_filter)
     data_series_type_echo = applyFilters(data_series_type, echo_filter)
     
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(data_series_type_echo[0],headers_only=False)
     t2_image_data = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
     
     radius_large_ROI = np.sqrt(200/np.pi)*10/x_res # roi should be 195cm^2-205cm^2 -> r in cm -> r in mm -> r in voxels
@@ -452,16 +453,17 @@ def percent_signal_ghosting(data, results, action):
     print(">>> 6. Percent Signal Ghosting <<<")
     t1_series_filter = {item:filters.get(item)for item in ["SeriesDescription"]}
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(t1_data_series[0],headers_only=False)
     x_res = float(dcmInfile.info.PixelSpacing[0])
     t1_image_data = np.transpose(pixeldataIn[int(params['slicenumber'])-1,:,:]) # take slice-1 (0-index)
     
     #use slice 6 because slice 1 has too much sturctues in it
     image_data_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
-    x_center_px, y_center_px, width, height = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:4]
-    #x_center_px, y_center_px = find_center(image_data_center,params)
-    width = int(width)
-    height = int(height)
+    #x_center_px, y_center_px, width, height = retrieve_ellipse_parameters(image_data_center, mask_air_bubble=True)[0:4]
+    x_center_px, y_center_px = find_center(image_data_center,params)
+    radius = find_radius(image_data_center,params)
+    width = int(radius)
+    height = int(radius)
     x_center_px = int(x_center_px)
     y_center_px = int(y_center_px)
     
@@ -512,7 +514,7 @@ def slice_position(data,results,action):
     print(">>> 4. Slice Position Accuracy T1 <<<")
     t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(t1_data_series[0],headers_only=False)
     image_data_t1_top = np.transpose(pixeldataIn[int(params['slicenumbertop'])-1,:,:]) # take slice-1 (0-index)
     image_data_t1_bot = np.transpose(pixeldataIn[int(params['slicenumberbot'])-1,:,:]) # take slice-1 (0-index)
     image_data_t1_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
@@ -520,6 +522,7 @@ def slice_position(data,results,action):
     # offsets for the Slice Position insert
     # location of the Slice Position insert is defined wrt center of the phantom:
     #x_center_px, y_center_px = retrieve_ellipse_parameters(image_data_t1_center, mask_air_bubble=True)[0:2]
+ 
     x_center_px, y_center_px = find_center(image_data_t1_center,params)
     x_center_px = int(x_center_px) #vertical in  plots
     y_center_px = int(y_center_px) #horizontal in plots
@@ -543,7 +546,7 @@ def slice_position(data,results,action):
     data_series_type = applyFilters(data_series, type_filter)
     data_series_type_echo = applyFilters(data_series_type, echo_filter)
     
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(data_series_type_echo[0],headers_only=False)
     image_data_t2_top = np.transpose(pixeldataIn[int(params['slicenumbertop'])-1,:,:]) # take slice-1 (0-index)
     image_data_t2_bot = np.transpose(pixeldataIn[int(params['slicenumberbot'])-1,:,:]) # take slice-1 (0-index)
     image_data_t2_center = np.transpose(pixeldataIn[5,:,:]) # take slice-1 (0-index)
@@ -585,7 +588,7 @@ def low_contrast_object_detectability(data, results, action):
     print(">>> 7. Low Contrast Object Detectability T1 <<<")
     t1_series_filter = {"SeriesDescription":filters.get(item)for item in ["t1_series_description"]}
     t1_data_series = applyFilters(data.series_filelist, t1_series_filter)
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(t1_data_series[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(t1_data_series[0],headers_only=False)
     x_res = float(dcmInfile.info.PixelSpacing[0])
     t1_image_data = pixeldataIn[int(params['firstslice'])-1:int(params['lastslice']),:,:] # take slice-1 (0-index)
     
@@ -606,7 +609,7 @@ def low_contrast_object_detectability(data, results, action):
     data_series_type = applyFilters(data_series, type_filter)
     data_series_type_echo = applyFilters(data_series_type, echo_filter)
     
-    dcmInfile,pixeldataIn,dicomMode = wadwrapper_lib.prepareInput(data_series_type_echo[0],headers_only=False)
+    dcmInfile,pixeldataIn,dicomMode = MR_ACR_dcm_input.prepareInput(data_series_type_echo[0],headers_only=False)
     t2_image_data = pixeldataIn[int(params['firstslice'])-1:int(params['lastslice']),:,:] # take slice-1 (0-index)
     
     t1_count_spokes = 0

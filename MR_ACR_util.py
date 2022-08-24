@@ -10,19 +10,17 @@ To do:
     - weird notation from guido in function def..
     
 """
-from pathlib import Path
-from typing import List, Tuple, Any, Union
+from typing import List, Tuple
 from skimage import feature
 from skimage.transform import radon
 from skimage.feature import canny
 from skimage.transform import hough_circle, hough_circle_peaks
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import Ellipse,Circle, Rectangle,Polygon
+from matplotlib.patches import Ellipse,Circle,Polygon
 from scipy.signal import find_peaks
 from scipy.interpolate import interp2d
 from scipy.fft import rfft, rfftfreq, irfft
-from scipy.ndimage.filters import gaussian_filter1d
 import seaborn as sns
 import cv2
 
@@ -300,14 +298,24 @@ def find_center(image_data,params):
     """
     alternative for retrieve_ellipse_parameters
     """
-    edges = detect_edges(image_data, int(params['canny_sigma']), int(params['canny_low_threshold']))
+    #edges = detect_edges(image_data, int(params['canny_sigma']), int(params['canny_low_threshold']))
+    low_tresh = 0.05 * np.mean(np.nonzero(image_data))
+    edges = detect_edges(image_data, float(params['canny_sigma']), low_tresh) #get edges from the image
     contours, hierarchy = cv2.findContours(edges.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     c = max(contours, key = cv2.contourArea) # select the biggest contour
     (center_x_pix,center_y_pix),radius_pix = cv2.minEnclosingCircle(c)
     
     return center_x_pix, center_y_pix
     
-    
+def find_radius(image_data,params):
+    #edges = detect_edges(image_data, int(params['canny_sigma']), int(params['canny_low_threshold'])) #get edges from the image
+    low_tresh = 0.05 * np.mean(np.nonzero(image_data))
+    edges = detect_edges(image_data, float(params['canny_sigma']), low_tresh) #get edges from the image
+    contours, hierarchy = cv2.findContours(edges.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    c = max(contours, key = cv2.contourArea) # select the biggest contour
+    (center_x_pix,center_y_pix),radius = cv2.minEnclosingCircle(c)
+    return radius
+
 def find_xy_diameter(image_data_xy,pixel_spacing, params):
    """
    Start with edge detection
@@ -315,7 +323,9 @@ def find_xy_diameter(image_data_xy,pixel_spacing, params):
    Select the largest contour and extract diameter
    Create a plot
    """
-   edges_xy = detect_edges(image_data_xy, int(params['canny_sigma']), int(params['canny_low_threshold'])) #get edges from the image
+   #edges_xy = detect_edges(image_data_xy, int(params['canny_sigma']), int(params['canny_low_threshold'])) #get edges from the image
+   low_tresh = 0.05 * np.mean(np.nonzero(image_data_xy))
+   edges_xy = detect_edges(image_data_xy, float(params['canny_sigma']), low_tresh) #get edges from the image
    contours, hierarchy = cv2.findContours(edges_xy.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
    c = max(contours, key = cv2.contourArea) # select the biggest contour
    
@@ -345,7 +355,10 @@ def find_z_length(image_data_z,pixel_spacing,acqdate,params):
     Select the largest contour and extract z_length
     Create a plot
     """
-    edges_z = detect_edges(image_data_z, float(params['canny_sigma']), int(params['canny_low_threshold'])) #get edges from the image
+    #edges_z = detect_edges(image_data_z, float(params['canny_sigma']), int(params['canny_low_threshold'])) #get edges from the image
+    
+    low_tresh = 0.05 * np.mean(np.nonzero(image_data_z))
+    edges_z = detect_edges(image_data_z, float(params['canny_sigma']), low_tresh) #get edges from the image
     
     # from the edges, extract the contours
     contours, hierarchy = cv2.findContours(edges_z.astype('uint8'), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -636,8 +649,9 @@ def get_mean_rect_ROI(image, rect):
         
 
 def find_centre_lowcontrast(image_data,sigma,low_threshold,pixel_spacing):
+    low_tresh = 0.05 * np.mean(np.nonzero(image_data))
     edges = feature.canny(image_data,
-        sigma=sigma,low_threshold=low_threshold,high_threshold=None)
+        sigma=sigma,low_threshold=low_tresh,high_threshold=None)
 
     searchradius = np.arange(int(np.ceil(42/pixel_spacing)), int(np.ceil(47/pixel_spacing)))
     hough_res = hough_circle(edges, searchradius)
@@ -964,7 +978,9 @@ def get_slice_position_error(image_data,x_center_px,y_center_px,axs,title,pixel_
     slice_offsets = np.array([[58,0],[58,-4]]) / pixel_spacing
     searchrange = np.array([10,3]) / pixel_spacing
     
-    edges = detect_edges(image_data)
+    #edges = detect_edges(image_data)
+    low_tresh = 0.05 * np.mean(np.nonzero(image_data))
+    edges = detect_edges(image_data, 2, low_tresh) #get edges from the image
     edges_wedge1 = edges[np.int0(y_center_px-slice_offsets[0][0]-searchrange[0]):np.int0(y_center_px-slice_offsets[0][0]),
                          np.int0(x_center_px-slice_offsets[0][1]-searchrange[1]):np.int0(x_center_px-slice_offsets[0][1])]   
     edges_wedge2 = edges[np.int0(y_center_px-slice_offsets[1][0]-searchrange[0]):np.int0(y_center_px-slice_offsets[1][0]),
