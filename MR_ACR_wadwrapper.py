@@ -9,12 +9,12 @@ Created on Mon May 30 09:25:48 2022
 __version__ = '20220824'
 __author__ = 'tschakel'
 
-
+#runfile('/smb/user/tschakel/BLD_RT_RESEARCH_DATA/USER/tschakel/projects/wadqc/QAtests/MRI_ACR/git/MR_ACR/MR_ACR_wadwrapper.py', args='-r results.json -c config/mr_acr_philips_sim.json -d /smb/user/tschakel/BLD_RT_RESEARCH_DATA/USER/tschakel/projects/wadqc/QAtests/MRI_ACR/git/MR_ACR/test_data/data6', wdir='/smb/user/tschakel/BLD_RT_RESEARCH_DATA/USER/tschakel/projects/wadqc/QAtests/MRI_ACR/git/MR_ACR/')
 # this will fail unless wad_qc is already installed
 from wad_qc.module import pyWADinput
 
 import matplotlib
-matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
+#matplotlib.use('Agg') # Force matplotlib to not use any Xwindows backend.
 
 import MR_ACR_lib
 
